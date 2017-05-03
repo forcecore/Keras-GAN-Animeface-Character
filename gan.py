@@ -24,36 +24,43 @@ def build_discriminator( shape ) :
     face = Input( shape=shape )
 
     x = Conv2D( 64, (5, 5), padding='same', strides=(2, 2), input_shape=shape )( face )
-    x = Dropout( 0.3 )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
 
     x = Conv2D( 128, (5, 5), padding='same', strides=(2, 2) )( x )
-    x = Dropout( 0.3 )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
-    x = Conv2D( 256, (5, 5), padding='same', strides=(2, 2) )( x )
-    x = Dropout( 0.3 )( x )
+    x = Conv2D( 256, (3, 3), padding='same', strides=(2, 2) )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
-    x = Conv2D( 512, (5, 5), padding='same', strides=(2, 2) )( x )
-    x = Dropout( 0.3 )( x )
+    x = Conv2D( 512, (3, 3), padding='same', strides=(2, 2) )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
     x = Conv2D( 512, (3, 3) )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2x2
 
     x = Conv2D( 512, (2, 2) )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
     x = Flatten()( x )
 
     x = Dense( 512 )( x )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+
+    x = Dense( 512 )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
 
     x = Dense( 1, activation='sigmoid' )( x ) # 1 when "real", 0 when "fake".
@@ -71,18 +78,22 @@ def build_gen( shape ) :
     # 4x4
 
     x = Conv2DTranspose( 256, (5, 5), strides=(2, 2), padding='same' )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
     x = Conv2DTranspose( 128, (5, 5), strides=(2, 2), padding='same' )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
     x = Conv2DTranspose( 64, (5, 5), strides=(2, 2), padding='same' )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
 
     x = Conv2DTranspose( 32, (5, 5), strides=(2, 2), padding='same' )( x )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 64 x 64
 
@@ -118,7 +129,7 @@ def set_trainable( model, trainable ) :
 
 
 
-def dump_batch(imgs, cnt):
+def dump_batch(imgs, cnt, ofname):
     '''
     Merges cnt x cnt generated images into one big image.
     Use the command
@@ -137,7 +148,7 @@ def dump_batch(imgs, cnt):
 
     alles = np.concatenate( rows, axis=0 )
     alles = denormalize4gan( alles )
-    scipy.misc.imsave( 'dump.png', alles )
+    scipy.misc.imsave( ofname, alles )
 
 
 
@@ -181,7 +192,7 @@ def train_gan( dataf ) :
 
     # Uncomment these, if you want to continue training from some snapshot.
     genw = 'gen.hdf5'
-    gen.load_weights( genw )
+    #gen.load_weights( genw )
     discw = 'disc.hdf5'
     #disc.load_weights( discw )
 
@@ -211,7 +222,8 @@ def train_gan( dataf ) :
         # save weights every 10 batches
         if batch % 10 == 0 and batch != 0 :
             # Dump how the generator is doing.
-            dump_batch(fakes, 4)
+            dump_batch(fakes, 4, "fakes.png")
+            dump_batch(reals, 4, "reals.png")
             serial = int(batch / 10) % 10
             prefix = os.path.join(Args.snapshot_dir, str(serial) + ".")
             try :
