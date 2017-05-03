@@ -10,7 +10,7 @@ should an example on something more realistic.
     * https://oshearesearch.com/index.php/2016/07/01/mnist-generative-adversarial-model-in-keras/
     * https://github.com/osh/KerasGAN
     * https://medium.com/towards-data-science/gan-by-example-using-keras-on-tensorflow-backend-1a6d515a60d0
-* "How to Train a GAN? Tips and tricks to make GANs work" is a must read!
+* "How to Train a GAN? Tips and tricks to make GANs work" is a must read! (GAN Hacks)
     * The advice was very helpful in making this example.
     * https://github.com/soumith/ganhacks
 
@@ -35,3 +35,33 @@ should an example on something more realistic.
     * ./data.py
     * data.py will resize the input to 64x64 (size defined in args.py) and dump them in data.hdf5.
     * Again, which files to read is defined in the script at the bottom, not by sys.argv.
+* Now, train with gan.py!
+    * If things go well, the discriminator loss for detecting real/fake = dloss0/dloss1 should
+      be around 0.1, which means it is good at telling whether the input is real or fake.
+    * If learning rate is too high, one of them will get high and training fails.
+    * Or it could be lack of complexity in the discriminator layer. Add more layers.
+    * On the other hand, generator loss will be relatively higher than discriminator loss.
+      In my case, it oscillates in range 1 to 8.
+    * GAN training is unstable, you'll need trial and error to get the hyper-pameters right
+      so that the training continues in the stable, balanced zone.
+    * If you see any of the loss staying > 15 (when batch size is 32) the training is screwed.
+    * In case you're seeing high generator loss, it means it can't keep up with discriminator.
+      You need to increase LR. (Must be slower than discriminator though)
+    * But then if you have both generator and discriminator LR too high,
+      you'll likely get a uniform colored output, the networks can't converge.
+    * The convergence is very sensitive with LR, beware!
+* As described in GAN Hacks, discriminator should be ahead of the generator so that
+  the generator can be "guided" by the discriminator. You may need pre-training.
+  To do that, copy-paste training code for discriminator and run it for about 100 batches.
+* The training takes a while. For this example on Anime Face dataset, it took about 10000 batches
+  to get good results.
+    * Until batch 1000, I saw just some color changes with noise.
+        * If you see uniform color the training is not working.
+* GAN script dumps dump.png every 10 batches.
+  It will show generated faces by the generator.
+  If you see only one color in the generated output,
+  that means the generator is tricking the discriminator with garbage and the training is failing.
+  You'll need better a more complex discriminator.
+* The script also dumps weights every 10 batches. Utilize them to save training time.
+  Weights before diverging is preferred :)
+  Uncomment load\_weights() in train\_gan().
