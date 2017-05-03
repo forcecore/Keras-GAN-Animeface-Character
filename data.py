@@ -7,7 +7,33 @@ import scipy.misc
 from args import Args
 
 
+def normalize4gan(im):
+    '''
+    Scale the input in [-1, 1] range, as described in ganhacks
+    Warning: input im is modified in-place!
+    '''
+    im /= 128 # in [0, 2]
+    im -= 1 # in [-1, 1]
+    return im
+
+
+
+def denormalize4gan(im):
+    '''
+    Does opposite of normalize4gan:
+    [-1, 1] to [0, 255].
+    Warning: input im is modified in-place!
+    '''
+    im += 1
+    im *= 128
+    return im
+
+
+
 def make_hdf5(ofname, wildcard):
+    '''
+    Preprocess files given by wildcard and save them in hdf5 file, as ofname.
+    '''
     # h5py data structure works best on fixed size length.
     # For that, we don't iterate on glob and instead get the file list first.
     fnames = list(glob.glob(wildcard))
@@ -23,13 +49,14 @@ def make_hdf5(ofname, wildcard):
             im = im.astype(np.float32)
 
             # scale the input in [-1, 1] range, as described in ganhacks
-            im /= 128 # in [0, 2]
-            im -= 1 # in [-1, 1]
-            
-            faces[i] = im
+            faces[i] = normalize4gan(im)
+
 
 
 def test(hdff):
+    '''
+    Reads in hdf file and check if pixels are scaled in [-1, 1] range.
+    '''
     with h5py.File(hdff, "r") as f:
         Xs = f.get("faces")
         for i in range(len(Xs)):
@@ -39,6 +66,7 @@ def test(hdff):
             print(np.min(X))
             assert np.max(X) <= 1.0
             assert np.min(X) >= -1.0
+
 
 
 if __name__ == "__main__" :
