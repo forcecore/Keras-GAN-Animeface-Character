@@ -150,8 +150,8 @@ def build_networks():
     # Optimizers are important too, try experimenting them yourself to fit your dataset.
     #opt = optimizers.SGD( lr=0.000001, decay=0.0, momentum=0.9, nesterov=False)
     #dopt = optimizers.SGD(lr=0.000020, decay=0.0, momentum=0.9, nesterov=False)
-    opt =  Adam(lr=0.000090)
-    dopt = Adam(lr=0.000100)
+    opt =  Adam(lr=0.000005)
+    dopt = Adam(lr=0.000090)
 
     # generator part
     gen = build_gen( shape )
@@ -212,16 +212,16 @@ def train_gan( dataf ) :
         if batch % 10 == 0 and batch != 0 :
             # Dump how the generator is doing.
             dump_batch(fakes, 4)
-            serial = int(batch / 10) % 5
+            serial = int(batch / 10) % 10
             prefix = os.path.join(Args.snapshot_dir, str(serial) + ".")
             try :
-                print("saving")
+                print("saving", serial)
                 gen.save_weights(prefix + genw)
                 disc.save_weights(prefix + discw)
             except KeyboardInterrupt :
                 # Sometimes user may interrupt when save_weights is in progress!!
                 # Save the weights in case it gets corrupt.
-                print("saving, don't interrupt with Ctrl+C!")
+                print("saving, don't interrupt with Ctrl+C!", serial)
                 # ... and if the user interrupts here, weight gets corrupted!
                 gen.save_weights(prefix + genw)
                 disc.save_weights(prefix + discw)
