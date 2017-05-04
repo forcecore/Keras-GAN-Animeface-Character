@@ -35,13 +35,23 @@ should an example on something more realistic.
     * ./data.py
     * data.py will resize the input to 64x64 (size defined in args.py) and dump them in data.hdf5.
     * Again, which files to read is defined in the script at the bottom, not by sys.argv.
-* Now, train with gan.py!
+* In principle, GAN can learn from scratch. However, it will take ages.
+* Open gan.py then at the bottom, uncomment pretrain\_gen() to run generator pretraining.
+    * This will attach an encoder network to the front of the generator network
+      to form an auto-encoder.
+    * The auto-encoder will be trained on input images.
+    * Auto-encoder actually helps the main GAN training by allowing us to evaluate
+      the generator part :)
+* Main training step!
     * If things go well, the discriminator loss for detecting real/fake = dloss0/dloss1 should
       be around 0.1, which means it is good at telling whether the input is real or fake.
     * If learning rate is too high, one of them will get high and training fails.
     * Or it could be lack of complexity in the discriminator layer. Add more layers.
     * On the other hand, generator loss will be relatively higher than discriminator loss.
-      In my case, it oscillates in range 1 to 8.
+      In my case, it oscillates in range 1 to 4.
+    * When I saw values around 3 to 8 then it eventually diverged.
+    * If you look at loss graph at https://github.com/osh/KerasGAN,
+      they had gen loss in range of 2 to 4 too!
     * GAN training is unstable, you'll need trial and error to get the hyper-pameters right
       so that the training continues in the stable, balanced zone.
     * If you see any of the loss staying > 15 (when batch size is 32) the training is screwed.
@@ -50,6 +60,11 @@ should an example on something more realistic.
     * But then if you have both generator and discriminator LR too high,
       you'll likely get a uniform colored output, the networks can't converge.
     * The convergence is very sensitive with LR, beware!
+    * If you see all loss < 1, then discriminator learns faster and will (hopefully)
+      escape that state soon.
+* If you can pretrain the generator with some MSE method and then train discriminator,
+  the training will be a lot faster.
+  You can't really do that when you are generating stuff from noise though.
 * As described in GAN Hacks, discriminator should be ahead of the generator so that
   the generator can be "guided" by the discriminator. You may need pre-training.
   To do that, copy-paste training code for discriminator and run it for about 100 batches.
