@@ -3,6 +3,7 @@ import glob
 import h5py
 import numpy as np
 import scipy.misc
+import random
 
 from args import Args
 
@@ -34,10 +35,11 @@ def make_hdf5(ofname, wildcard):
     '''
     Preprocess files given by wildcard and save them in hdf5 file, as ofname.
     '''
-    # h5py data structure works best on fixed size length.
-    # For that, we don't iterate on glob and instead get the file list first.
-    fnames = list(glob.glob(wildcard))
-    fnames.sort()
+    pool = list(glob.glob(wildcard))
+    fnames = []
+    for i in range(Args.dataset_sz):
+        # duplicate possible, but don't care.
+        fnames.append(random.choice(pool))
 
     with h5py.File(ofname, "w") as f:
         faces = f.create_dataset("faces", (len(fnames), Args.sz, Args.sz, 3), dtype='f')

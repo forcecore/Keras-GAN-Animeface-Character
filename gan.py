@@ -29,6 +29,51 @@ def build_discriminator( shape ) :
             padding='same', kernel_initializer='orthogonal', **kwargs )( x )
 
     face = Input( shape=shape )
+    x = face
+
+    x = conv2d( x, 32 )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 32 x 32
+
+    x = conv2d( x, 64, strides=(2, 2) )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 16 x 16
+
+    x = conv2d( x, 128, strides=(2, 2) )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 8 x 8
+
+    x = conv2d( x, 256, strides=(2, 2) )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 4 x 4
+
+    x = Conv2D( 256, (4, 4), kernel_initializer='orthogonal' )( x )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 1x1
+
+    x = Flatten()( x )
+
+    x = Dense( 256 )( x )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+
+    x = Dense( 1, activation='sigmoid' )( x ) # 1 when "real", 0 when "fake".
+
+    return models.Model( inputs=face, outputs=x )
+
+
+
+def build_enc( shape ) :
+    def conv2d( x, filters, shape=(5, 5), **kwargs ) :
+        return Conv2D( filters, shape,
+            padding='same', kernel_initializer='orthogonal', **kwargs )( x )
+
+    face = Input( shape=shape )
 
     x = conv2d( face, 32, input_shape=shape )
     x = Dropout( Args.dropout )( x )
@@ -54,18 +99,13 @@ def build_discriminator( shape ) :
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2 x 2
 
-    x = Conv2D( 256, (2, 2), kernel_initializer='orthogonal' )( x )
+    x = Conv2D( 256, (4, 4), kernel_initializer='orthogonal' )( x )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
-    x = Flatten()( x )
-
-    x = Dense( 256 )( x )
+    x = Conv2D( 256, (1, 1), activation='sigmoid' )( x )
     x = Dropout( Args.dropout )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-
-    x = Dense( 1, activation='sigmoid' )( x ) # 1 when "real", 0 when "fake".
 
     return models.Model( inputs=face, outputs=x )
 
@@ -82,7 +122,12 @@ def build_gen( shape ) :
     # noise is not useful for generating images.
 
     x = deconv2d( x, 256, (5, 5) )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 2x2
     x = deconv2d( x, 256, (5, 5) )
+    x = Dropout( Args.dropout )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
     # 4x4
 
     x = deconv2d( x, 256, (5, 5) )
@@ -166,7 +211,7 @@ def build_networks():
     #opt  = optimizers.SGD(lr=0.002, decay=0.0, momentum=0.0, nesterov=True)
     #dopt = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
     dopt = Adam(lr=0.00010)
-    opt  = Adam(lr=0.00002)
+    opt  = Adam(lr=0.00001)
 
     # generator part
     gen = build_gen( shape )
@@ -191,12 +236,62 @@ def build_networks():
 
 
 
+def train_autoenc( dataf ):
+    genw = 'gen.init'
+    encw = 'enc.hdf5'
+
+    f = h5py.File( dataf, 'r' )
+    faces = f.get( 'faces' )
+
+    opt = Adam(lr=0.001)
+
+    shape = (Args.sz, Args.sz, 3)
+    enc = build_enc( shape )
+    enc.compile(optimizer=opt, loss='mse')
+    #enc.load_weights(encw)
+    enc.summary()
+
+    # generator part
+    gen = build_gen( shape )
+    # generator is not directly trained. Optimizer and loss doesn't matter too much.
+    gen.compile(optimizer=opt, loss='mse')
+    #gen.load_weights(genw)
+    gen.summary()
+
+    face = Input( shape=shape )
+    vector = enc(face)
+    recons = gen(vector)
+    autoenc = models.Model( inputs=face, outputs=recons )
+    autoenc.compile(optimizer=opt, loss='mse')
+
+    epoch = 0
+    while epoch < 1000 :
+        try :
+            for i in range(10) :
+                reals, fakes, noises = make_batch( faces, gen, Args.batch_sz )
+                loss = autoenc.train_on_batch( reals, reals )
+                epoch += 1
+                print(epoch, loss)
+            fakes = autoenc.predict(reals)
+            dump_batch(fakes, 4, "fakes.png")
+            dump_batch(reals, 4, "reals.png")
+        except KeyboardInterrupt :
+            print("Saving weight, don't interrupt!")
+            enc.save_weights(encw)
+            gen.save_weights(genw)
+            break
+    enc.save_weights(encw)
+    gen.save_weights(genw)
+
+
+
 def train_gan( dataf ) :
     gen, disc, gan = build_networks()
 
     # Uncomment these, if you want to continue training from some snapshot.
     genw = 'gen.hdf5'
-    #genw = 'gen.init'
+    genw_init = 'gen.init'
+    gen.load_weights( genw_init )
     #gen.load_weights( genw )
     discw = 'disc.hdf5'
     #disc.load_weights( discw )
@@ -215,13 +310,8 @@ def train_gan( dataf ) :
         # train discriminator
         if train_disc :
             set_trainable( gen, False )
-            if random.randrange(5) == 0 :
-                # confuse the classifier (and not generator)
-                d_loss1 = disc.train_on_batch( reals, zs0 )
-                d_loss0 = disc.train_on_batch( fakes, zs1 )
-            else :
-                d_loss1 = disc.train_on_batch( reals, zs1 )
-                d_loss0 = disc.train_on_batch( fakes, zs0 )
+            d_loss1 = disc.train_on_batch( reals, zs1 )
+            d_loss0 = disc.train_on_batch( fakes, zs0 )
             set_trainable( gen, True )
        
         # pretrain train discriminator only
@@ -265,7 +355,8 @@ def main( argv ) :
     if not os.path.exists(Args.snapshot_dir) :
         os.mkdir(Args.snapshot_dir)
 
-    train_gan( "data.hdf5" )
+    train_autoenc( "data.hdf5" )
+    #train_gan( "data.hdf5" )
 
 
 
