@@ -222,8 +222,8 @@ def build_networks():
     # I recommend you read DCGAN paper.
     #opt  = optimizers.SGD(lr=0.002, decay=0.0, momentum=0.0, nesterov=True)
     #dopt = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
-    dopt = Adam(lr=0.000050, beta_1=0.5)
-    opt  = Adam(lr=0.000005, beta_1=0.5)
+    dopt = Adam(lr=0.00010, beta_1=0.5)
+    opt  = Adam(lr=0.00001, beta_1=0.5)
 
     # generator part
     gen = build_gen( shape )
@@ -397,10 +397,10 @@ def main( argv ) :
     #train_autoenc( "data.hdf5" )
 
     # train GAN with inputs in data.hdf5
-    #train_gan( "data.hdf5" )
+    train_gan( "data.hdf5" )
 
     # Lets generate stuff
-    generate( "gen.hdf5", 256 )
+    #generate( "gen.hdf5", 256 )
 
 
 
