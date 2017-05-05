@@ -371,12 +371,36 @@ def train_gan( dataf ) :
 
 
 
+def generate( genw, cnt ):
+    shape = (Args.sz, Args.sz, 3)
+    gen = build_gen( shape )
+    gen.compile(optimizer='sgd', loss='mse')
+    gen.load_weights(genw)
+
+    noise = np.random.randint( 0, 2, size=((cnt,) + Args.noise_shape)).astype(np.float32)
+    generated = gen.predict(noise)
+    # Unoffset, in batch.
+    # Must convert back to unit8 to stop color distortion.
+    generated = denormalize4gan(generated).astype(np.uint8)
+
+    for i in range(cnt):
+        ofname = "{:04d}.png".format(i)
+        scipy.misc.imsave( ofname, generated[i] )
+
+
+
 def main( argv ) :
     if not os.path.exists(Args.snapshot_dir) :
         os.mkdir(Args.snapshot_dir)
 
+    # test capability of generator through autoencoder test.
     #train_autoenc( "data.hdf5" )
-    train_gan( "data.hdf5" )
+
+    # train GAN with inputs in data.hdf5
+    #train_gan( "data.hdf5" )
+
+    # Lets generate stuff
+    generate( "gen.hdf5", 256 )
 
 
 
