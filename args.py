@@ -2,7 +2,7 @@
 
 class Args :
     # images size we will work on. (sz, sz, 3)
-    sz = 64
+    sz = 32
     
     # alpha, used by leaky relu.
     alpha = 0.1
@@ -11,7 +11,7 @@ class Args :
     batch_sz = 32
 
     # Length of the noise vector to generate the faces from.
-    noise_len = 128
+    noise_shape = (1, 1, 256)
 
     # GAN training can be ruined any moment if not careful.
     # Archive some snapshots in this directory.

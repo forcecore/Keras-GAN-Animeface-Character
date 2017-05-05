@@ -55,16 +55,16 @@ should an example on something more realistic.
     * GAN training is unstable, you'll need trial and error to get the hyper-pameters right
       so that the training continues in the stable, balanced zone.
     * If you see any of the loss staying > 15 (when batch size is 32) the training is screwed.
-    * In case you're seeing high generator loss, it means it can't keep up with discriminator.
-      You need to increase LR. (Must be slower than discriminator though)
+    * In case you're seeing high generator loss, it could mean it can't keep up with discriminator.
+      You might need to increase LR. (Must be slower than discriminator though)
+      But the training could be working so be patient, if you have low
+      discriminatr loss. (about 0.1)
     * But then if you have both generator and discriminator LR too high,
       you'll likely get a uniform colored output, the networks can't converge.
     * The convergence is very sensitive with LR, beware!
     * If you see all loss < 1, then discriminator learns faster and will (hopefully)
       escape that state soon.
-* If you can pretrain the generator with some MSE method and then train discriminator,
-  the training will be a lot faster.
-  You can't really do that when you are generating stuff from noise though.
+* Pretraining generator doesn't really help.
 * As described in GAN Hacks, discriminator should be ahead of the generator so that
   the generator can be "guided" by the discriminator. You may need pre-training.
   To do that, copy-paste training code for discriminator and run it for about 100 batches.

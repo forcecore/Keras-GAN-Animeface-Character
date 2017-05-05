@@ -20,46 +20,48 @@ from data import denormalize4gan
 
 
 
+
+
+
 def build_discriminator( shape ) :
+    def conv2d( x, filters, shape=(5, 5), **kwargs ) :
+        return Conv2D( filters, shape,
+            padding='same', kernel_initializer='orthogonal', **kwargs )( x )
+
     face = Input( shape=shape )
 
-    x = Conv2D( 64, (5, 5), padding='same', strides=(2, 2), input_shape=shape )( face )
+    x = conv2d( face, 32, input_shape=shape )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
-
-    x = Conv2D( 128, (5, 5), padding='same', strides=(2, 2) )( x )
+    x = conv2d( x, 32 )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
-    x = Conv2D( 256, (5, 5), padding='same', strides=(2, 2) )( x )
+    x = conv2d( x, 64, strides=(2, 2) )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
-    x = Conv2D( 512, (5, 5), padding='same', strides=(2, 2) )( x )
+    x = conv2d( x, 128, strides=(2, 2) )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
-    x = Conv2D( 512, (3, 3) )( x )
+    x = conv2d( x, 256, strides=(2, 2) )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
-    # 2x2
+    # 2 x 2
 
-    x = Conv2D( 512, (2, 2) )( x )
+    x = Conv2D( 256, (2, 2), kernel_initializer='orthogonal' )( x )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
     x = Flatten()( x )
 
-    x = Dense( 512 )( x )
-    x = Dropout( Args.dropout )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-
-    x = Dense( 512 )( x )
+    x = Dense( 256 )( x )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
 
@@ -69,71 +71,37 @@ def build_discriminator( shape ) :
 
 
 
-def build_enc( shape ) :
-    face = Input( shape=shape )
-
-    x = Conv2D( 64, (5, 5), padding='same', strides=(2, 2), input_shape=shape )( face )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 32 x 32
-
-    x = Conv2D( 128, (5, 5), padding='same', strides=(2, 2) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 16 x 16
-
-    x = Conv2D( 256, (5, 5), padding='same', strides=(2, 2) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 8 x 8
-
-    x = Conv2D( 512, (5, 5), padding='same', strides=(2, 2) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 4 x 4
-
-    x = Conv2D( 512, (3, 3) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 2x2
-
-    x = Conv2D( 512, (2, 2) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 1x1
-
-    x = Flatten()( x )
-    x = Dense( 512 )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-
-    x = Dense( 512 )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-
-    x = Dense( Args.noise_len, activation='sigmoid' )( x )
-
-    return models.Model( inputs=face, outputs=x )
-
-
-
 def build_gen( shape ) :
-    noise = Input( shape=(Args.noise_len,) )
+    def deconv2d( x, filters, shape ) :
+        return Conv2DTranspose( filters, shape, strides=(2, 2),
+            padding='same', kernel_initializer='orthogonal' )( x )
 
-    # 1D vector of length Args.noiselen
-    x = Reshape( (1, 1, Args.noise_len) )( noise )
-    x = UpSampling2D( (4, 4) )( x )
+    noise = Input( shape=Args.noise_shape )
+    x = noise
+    # 1x1x256
+    # noise is not useful for generating images.
+
+    x = deconv2d( x, 256, (5, 5) )
+    x = deconv2d( x, 256, (5, 5) )
     # 4x4
 
-    x = Conv2DTranspose( 512, (5, 5), strides=(2, 2), padding='same' )( x )
+    x = deconv2d( x, 256, (5, 5) )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
-    x = Conv2DTranspose( 256, (5, 5), strides=(2, 2), padding='same' )( x )
+    x = deconv2d( x, 128, (5, 5) )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
-    x = Conv2DTranspose( 128, (5, 5), strides=(2, 2), padding='same' )( x )
+    x = deconv2d( x, 64, (5, 5) )
+    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
 
-    x = Conv2DTranspose( 64, (5, 5), strides=(2, 2), padding='same' )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 64 x 64
-
-    x = Conv2D( 3, (5, 5), padding='same', activation='tanh' )( x )
+    x = Conv2D( 3, (5, 5), padding='same', activation='tanh', kernel_initializer='orthogonal' )( x )
+    x = Dropout( Args.dropout )( x )
 
     return models.Model( inputs=noise, outputs=x )
 
@@ -152,7 +120,7 @@ def make_batch( faces, gen, batch_sz ) :
     reals = np.array(reals)
 
     # Noise can't be plural but I want to put an emphasis that it has length of batch_sz
-    noises = np.random.ranf( (batch_sz, Args.noise_len) )
+    noises = np.random.ranf( (batch_sz,) + Args.noise_shape )
     fakes = gen.predict(noises)
 
     return reals, fakes, noises
@@ -195,10 +163,10 @@ def build_networks():
     # The scale of lr is inspired from this example:
     # https://medium.com/towards-data-science/gan-by-example-using-keras-on-tensorflow-backend-1a6d515a60d0
     # Optimizers are important too, try experimenting them yourself to fit your dataset.
-    #opt = optimizers.SGD( lr=0.000001, decay=0.0, momentum=0.9, nesterov=False)
-    #dopt = optimizers.SGD(lr=0.000020, decay=0.0, momentum=0.9, nesterov=False)
-    opt =  Adam(lr=0.000001)
-    dopt = Adam(lr=0.000050)
+    #opt  = optimizers.SGD(lr=0.002, decay=0.0, momentum=0.0, nesterov=True)
+    #dopt = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
+    dopt = Adam(lr=0.00010)
+    opt  = Adam(lr=0.00002)
 
     # generator part
     gen = build_gen( shape )
@@ -212,7 +180,7 @@ def build_networks():
     disc.summary()
 
     # GAN stack
-    face = Input( shape=(Args.noise_len,) )
+    face = Input( shape=Args.noise_shape )
     gened = gen( face )
     result = disc( gened )
     gan = models.Model( inputs=face, outputs=result )
@@ -223,79 +191,49 @@ def build_networks():
 
 
 
-def pretrain_gen( dataf ) :
-    shape = (Args.sz, Args.sz, 3)
-    opt =  Adamax(lr=0.0005)
-
-    enc = build_enc( shape )
-    gen = build_gen( shape )
-
-    face = Input( shape=shape )
-    vector = enc( face )
-    gface = gen( vector )
-
-    autoenc = models.Model( inputs=face, outputs=gface )
-    autoenc.compile(optimizer=opt, loss='mse')
-    autoenc.summary()
-
-    # Uncomment to continue training from a snapshot.
-    #enc.load_weights('enc.hdf5')
-    #gen.load_weights('gen.hdf5')
-
-    f = h5py.File( dataf, 'r' )
-    faces = f.get( 'faces' )
-
-    # 1 is enough for pretraining. You begin to see faces.
-    # Increase this, if you wish, check fakes.png to aid your decision.
-    for i in range(1) :
-        try :
-            autoenc.fit(faces, faces, batch_size=Args.batch_sz, epochs=1, shuffle="batch")
-            reals, fakes, noises = make_batch( faces, gen, Args.batch_sz )
-            dump_batch(fakes, 4, "fakes.png")
-            enc.save_weights('enc.hdf5')
-            gen.save_weights('gen.init')
-        except KeyboardInterrupt :
-            print("Stop.")
-            break
-
-    f.close()
-
-
-
 def train_gan( dataf ) :
     gen, disc, gan = build_networks()
 
     # Uncomment these, if you want to continue training from some snapshot.
-    #genw = 'gen.hdf5'
-    genw = 'gen.init'
-    gen.load_weights( genw )
+    genw = 'gen.hdf5'
+    #genw = 'gen.init'
+    #gen.load_weights( genw )
     discw = 'disc.hdf5'
     #disc.load_weights( discw )
 
     f = h5py.File( dataf, 'r' )
     faces = f.get( 'faces' )
 
+    train_disc = True
     for batch in range( 20000 ) :
         reals, fakes, noises = make_batch( faces, gen, Args.batch_sz )
 
         # Using soft labels here. Not using noisy labels. It sucked for me.
         zs0 = 0.01 * np.random.ranf(Args.batch_sz)
         zs1 = 1 - 0.01 * np.random.ranf(Args.batch_sz)
-       
+
         # train discriminator
-        set_trainable( gen, False )
-        d_loss1 = disc.train_on_batch( reals, zs1 )
-        d_loss0 = disc.train_on_batch( fakes, zs0 )
-        set_trainable( gen, True )
+        if train_disc :
+            set_trainable( gen, False )
+            if random.randrange(5) == 0 :
+                # confuse the classifier (and not generator)
+                d_loss1 = disc.train_on_batch( reals, zs0 )
+                d_loss0 = disc.train_on_batch( fakes, zs1 )
+            else :
+                d_loss1 = disc.train_on_batch( reals, zs1 )
+                d_loss0 = disc.train_on_batch( fakes, zs0 )
+            set_trainable( gen, True )
        
-        # train generator
-        if batch < 30 :
-            print("Pretraining discriminator")
+        # pretrain train discriminator only
+        if batch < 10 or d_loss1 >= 3.0 or d_loss0 >= 3.0 :
+            print( batch, "d0:{} d1:{}".format( d_loss0, d_loss1 ) )
+            train_disc = True
             continue
 
         set_trainable( disc, False )
         g_loss = gan.train_on_batch( noises, zs1 ) # try to trick the classifier.
         set_trainable( disc, True )
+        train_disc = True if g_loss < 15 else False
 
         print( batch, "d0:{} d1:{}   g:{}".format( d_loss0, d_loss1, g_loss ) )
 
@@ -327,7 +265,6 @@ def main( argv ) :
     if not os.path.exists(Args.snapshot_dir) :
         os.mkdir(Args.snapshot_dir)
 
-    #pretrain_gen( "data.hdf5" )
     train_gan( "data.hdf5" )
 
 
