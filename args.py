@@ -3,6 +3,9 @@
 class Args :
     dataset_sz = 2048
 
+    # Archive outputs of training here for animating later.
+    anim_dir = "anim"
+
     # images size we will work on. (sz, sz, 3)
     sz = 32
     
@@ -24,3 +27,6 @@ class Args :
 
     # noisy label magnitude
     label_noise = 0.1
+
+    genw = "gen.hdf5"
+    discw = "gen.hdf5"

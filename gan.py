@@ -121,6 +121,7 @@ def build_gen( shape ) :
         x = Conv2D( filters, shape, padding='same' )( x )
 
         # Bilinear2x... Not sure if it is without bug, not tested yet.
+        # Tend to make output blurry though
         #x = bilinear2x( x, filters )
         #x = Conv2D( filters, shape, padding='same' )( x )
         return x
@@ -181,11 +182,11 @@ def sample_fake( gen ):
     # Noise can't be plural but I want to put an emphasis that it has length of batch_sz
 
     # Distribution of noise matters.
-    # If you use single ranf that spans [0, 1], it will suck.
-    # Either normal or ranf works for me but be sure to use them as offset for randint.
+    # If you use single ranf that spans [0, 1], training will not work.
+    # Either normal or ranf works for me but be sure to use them with randrange(2) or something.
     #noises = np.random.normal( scale=0.1, size=((Args.batch_sz,) + Args.noise_shape) )
     #noises = 0.1 * np.random.ranf( size=((Args.batch_sz,) + Args.noise_shape) )
-    noises = np.random.randint( 0, 2, size=((Args.batch_sz,) + Args.noise_shape)).astype(np.float32)
+    noises = np.random.randint(0, 2, size=((Args.batch_sz,) + Args.noise_shape)).astype(np.float32)
     fakes = gen.predict(noises)
     return fakes, noises
 
@@ -252,9 +253,6 @@ def train_autoenc( dataf ):
     '''
     Train an autoencoder first to see if your network is large enough.
     '''
-    genw = 'gen.init'
-    encw = 'enc.hdf5'
-
     f = h5py.File( dataf, 'r' )
     faces = f.get( 'faces' )
 
@@ -263,14 +261,12 @@ def train_autoenc( dataf ):
     shape = (Args.sz, Args.sz, 3)
     enc = build_enc( shape )
     enc.compile(optimizer=opt, loss='mse')
-    #enc.load_weights(encw)
     enc.summary()
 
     # generator part
     gen = build_gen( shape )
     # generator is not directly trained. Optimizer and loss doesn't matter too much.
     gen.compile(optimizer=opt, loss='mse')
-    #gen.load_weights(genw)
     gen.summary()
 
     face = Input( shape=shape )
@@ -281,23 +277,15 @@ def train_autoenc( dataf ):
 
     epoch = 0
     while epoch < 1000 :
-        try :
-            for i in range(10) :
-                reals = sample_faces( faces  )
-                fakes, noises = sample_fake( gen )
-                loss = autoenc.train_on_batch( reals, reals )
-                epoch += 1
-                print(epoch, loss)
-            fakes = autoenc.predict(reals)
-            dump_batch(fakes, 4, "fakes.png")
-            dump_batch(reals, 4, "reals.png")
-        except KeyboardInterrupt :
-            print("Saving weight, don't interrupt!")
-            enc.save_weights(encw)
-            gen.save_weights(genw)
-            break
-    enc.save_weights(encw)
-    gen.save_weights(genw)
+        for i in range(10) :
+            reals = sample_faces( faces  )
+            fakes, noises = sample_fake( gen )
+            loss = autoenc.train_on_batch( reals, reals )
+            epoch += 1
+            print(epoch, loss)
+        fakes = autoenc.predict(reals)
+        dump_batch(fakes, 4, "fakes.png")
+        dump_batch(reals, 4, "reals.png")
 
 
 
@@ -305,69 +293,75 @@ def train_gan( dataf ) :
     gen, disc, gan = build_networks()
 
     # Uncomment these, if you want to continue training from some snapshot.
-    genw = 'gen.hdf5'
-    genw_init = 'gen.init'
-    #gen.load_weights( genw_init )
-    gen.load_weights( genw )
-    discw = 'disc.hdf5'
-    disc.load_weights( discw )
+    #gen.load_weights( Args.genw )
+    #disc.load_weights( Args.discw )
 
-    f = h5py.File( dataf, 'r' )
-    faces = f.get( 'faces' )
+    with h5py.File( dataf, 'r' ) as f :
+        faces = f.get( 'faces' )
+        run_batches(gen, disc, gan, faces, 20000)
 
-    history = []
 
+
+def run_batches(gen, disc, gan, faces, batch_cnt):
     train_disc = True
-    for batch in range( 20000 ) :
-        # add noise
-        #reals += np.exp(-batch/2000) * np.random.normal( size=reals.shape )
-
-        # Using soft labels here. Not using noisy labels. It sucked for me.
-        zs0 = Args.label_noise * np.random.ranf(Args.batch_sz)
-        zs1 = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
+    for batch in range(batch_cnt) :
+        # Using soft labels here.
+        lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
+        lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
 
         fakes, noises = sample_fake( gen )
         reals = sample_faces( faces )
+        # Add noise...
+        # My dataset works without this.
+        #reals += np.exp(-batch/2000) * np.random.normal( size=reals.shape )
+
         if train_disc :
             gen.trainable = False
-            d_loss1 = disc.train_on_batch( reals, zs1 )
-            d_loss0 = disc.train_on_batch( fakes, zs0 )
+            d_loss1 = disc.train_on_batch( reals, lbl_real )
+            d_loss0 = disc.train_on_batch( fakes, lbl_fake )
             gen.trainable = True
        
-        # pretrain train discriminator only
+        # pretrain train discriminator only (or, make D catch up if it is behind)
         if batch < 30 or d_loss1 >= 3.0 or d_loss0 >= 3.0 :
             print( batch, "d0:{} d1:{}".format( d_loss0, d_loss1 ) )
             train_disc = True
             continue
 
         disc.trainable = False
-        g_loss = gan.train_on_batch( noises, zs1 ) # try to trick the classifier.
+        g_loss = gan.train_on_batch( noises, lbl_real ) # try to trick the classifier.
         disc.trainable = True
         train_disc = True if g_loss < 15 else False
-
         print( batch, "d0:{} d1:{}   g:{}".format( d_loss0, d_loss1, g_loss ) )
 
         # save weights every 10 batches
         if batch % 10 == 0 and batch != 0 :
-            # Dump how the generator is doing.
-            dump_batch(fakes, 4, "fakes.png")
-            dump_batch(reals, 4, "reals.png")
-            serial = int(batch / 10) % 10
-            prefix = os.path.join(Args.snapshot_dir, str(serial) + ".")
-            try :
-                print("saving", serial)
-                gen.save_weights(prefix + genw)
-                disc.save_weights(prefix + discw)
-            except KeyboardInterrupt :
-                # Sometimes user may interrupt when save_weights is in progress!!
-                # Save the weights in case it gets corrupt.
-                print("saving, don't interrupt with Ctrl+C!", serial)
-                # ... and if the user interrupts here, weight gets corrupted!
-                gen.save_weights(prefix + genw)
-                disc.save_weights(prefix + discw)
-                break
+            end_of_batch_task(batch, gen, disc, reals, fakes)
 
-    f.close()
+
+
+_bits = np.random.randint( 0, 2,
+    size=((Args.batch_sz,) + Args.noise_shape)).astype(np.float32)
+def end_of_batch_task(batch, gen, disc, reals, fakes):
+    try :
+        # Dump how the generator is doing.
+        dump_batch(fakes, 4, "fakes.png")
+        dump_batch(reals, 4, "reals.png") # to see if our input is sane
+
+        # Animation dump
+        frame = gen.predict(_bits)
+        animf = os.path.join(Args.anim_dir, "fakes_{:05d}.png".format(batch))
+        dump_batch(frame, 4, animf)
+
+        serial = int(batch / 10) % 10
+        prefix = os.path.join(Args.snapshot_dir, str(serial) + ".")
+
+        print("Saving weights", serial)
+        gen.save_weights(prefix + Args.genw)
+        disc.save_weights(prefix + Args.discw)
+    except KeyboardInterrupt :
+        print("Saving, don't interrupt with Ctrl+C!", serial)
+        # recursion to surely save everything haha
+        end_of_batch_task(batch, gen, disc, reals, fakes)
 
 
 
@@ -392,6 +386,8 @@ def generate( genw, cnt ):
 def main( argv ) :
     if not os.path.exists(Args.snapshot_dir) :
         os.mkdir(Args.snapshot_dir)
+    if not os.path.exists(Args.anim_dir) :
+        os.mkdir(Args.anim_dir)
 
     # test capability of generator through autoencoder test.
     #train_autoenc( "data.hdf5" )
