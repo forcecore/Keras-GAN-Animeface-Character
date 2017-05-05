@@ -13,6 +13,8 @@ should an example on something more realistic.
 * "How to Train a GAN? Tips and tricks to make GANs work" is a must read! (GAN Hacks)
     * The advice was very helpful in making this example.
     * https://github.com/soumith/ganhacks
+* A PyTorch for the same purpose:
+    * https://github.com/jayleicn/animeGAN
 
 
 ## How to run this example

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 class Args :
+    dataset_sz = 2048
+
     # images size we will work on. (sz, sz, 3)
     sz = 32
     
@@ -22,6 +24,3 @@ class Args :
 
     # noisy label magnitude
     label_noise = 0.1
-
-    # max history to keep
-    max_history = 4

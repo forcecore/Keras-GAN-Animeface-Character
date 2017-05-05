@@ -5,8 +5,9 @@ import numpy as np
 import random
 from keras import models
 from keras import optimizers
+from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D, Conv2DTranspose, UpSampling2D
-from keras.layers.core import Dense, Activation, Dropout, Flatten, Reshape
+from keras.layers.core import Dense, Activation, Flatten, Reshape
 from keras.layers import Input
 from keras.optimizers import Adam, Adagrad, Adadelta, Adamax, SGD
 # GAN doesn't like spare gradients (says ganhack). LeakyReLU better.
@@ -17,9 +18,11 @@ import scipy
 import h5py
 from args import Args
 from data import denormalize4gan
+from layers import bilinear2x
 
-
-
+#import tensorflow as tf
+#import keras
+#keras.backend.get_session().run(tf.initialize_all_variables())
 
 
 
@@ -31,38 +34,39 @@ def build_discriminator( shape ) :
     face = Input( shape=shape )
     x = face
 
-    x = conv2d( x, 32 )
-    x = Dropout( Args.dropout )( x )
+    x = conv2d( x, 32, input_shape=shape )
     x = LeakyReLU(alpha=Args.alpha)( x )
-    # 32 x 32
 
-    x = conv2d( x, 64, strides=(2, 2) )
-    x = Dropout( Args.dropout )( x )
+    x = conv2d( x, 32, strides=(2, 2) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
-    x = conv2d( x, 128, strides=(2, 2) )
-    x = Dropout( Args.dropout )( x )
+    x = conv2d( x, 64, strides=(2, 2) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
-    x = conv2d( x, 256, strides=(2, 2) )
-    x = Dropout( Args.dropout )( x )
+    x = conv2d( x, 128, strides=(2, 2) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
-    x = Conv2D( 256, (4, 4) )( x )
-    x = Dropout( Args.dropout )( x )
+    x = conv2d( x, 256, strides=(2, 2) )
+    x = BatchNormalization()( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 2 x 2
+
+    x = Conv2D( 512, (2, 2) )( x )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
-    x = Flatten()( x )
-
     x = Dense( 256 )( x )
-    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
 
     x = Dense( 1, activation='sigmoid' )( x ) # 1 when "real", 0 when "fake".
+    x = Flatten()( x )
 
     return models.Model( inputs=face, outputs=x )
 
@@ -75,36 +79,29 @@ def build_enc( shape ) :
     face = Input( shape=shape )
 
     x = conv2d( face, 32, input_shape=shape )
-    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
     x = conv2d( x, 32 )
-    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
     x = conv2d( x, 64, strides=(2, 2) )
-    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
     x = conv2d( x, 128, strides=(2, 2) )
-    x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
-    x = conv2d( x, 256, strides=(2, 2) )
-    x = Dropout( Args.dropout )( x )
+    x = Conv2D( 256, (3, 3) )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2 x 2
 
-    x = Conv2D( 256, (4, 4) )( x )
-    x = Dropout( Args.dropout )( x )
+    x = Conv2D( 256, (2, 2) )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
     x = Conv2D( 256, (1, 1), activation='sigmoid' )( x )
-    x = Dropout( Args.dropout )( x )
 
     return models.Model( inputs=face, outputs=x )
 
@@ -112,7 +109,9 @@ def build_enc( shape ) :
 
 def build_gen( shape ) :
     def deconv2d( x, filters, shape ) :
-        return Conv2DTranspose( filters, shape, strides=(2, 2), padding='same' )( x )
+        # Conv2DTransposed gives me checkerboard artifact.
+        x = bilinear2x( x, filters )
+        return Conv2D( filters, shape, padding='same' )( x )
 
     noise = Input( shape=Args.noise_shape )
     x = noise
@@ -120,31 +119,36 @@ def build_gen( shape ) :
     # noise is not useful for generating images.
 
     x = deconv2d( x, 256, (5, 5) )
-    x = Dropout( Args.dropout )( x )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2x2
     x = deconv2d( x, 256, (5, 5) )
-    x = Dropout( Args.dropout )( x )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4x4
 
     x = deconv2d( x, 256, (5, 5) )
-    x = Dropout( Args.dropout )( x )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
     x = deconv2d( x, 128, (5, 5) )
-    x = Dropout( Args.dropout )( x )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
     x = deconv2d( x, 64, (5, 5) )
-    x = Dropout( Args.dropout )( x )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
 
+    # extra layers for less noisy generation
+    for i in range( 2 ) :
+        x = Conv2D( 64, (5, 5), padding='same' )( x  )
+        x = BatchNormalization()( x )
+        x = LeakyReLU(alpha=Args.alpha)( x )
+
     x = Conv2D( 3, (5, 5), padding='same', activation='tanh' )( x )
-    x = Dropout( Args.dropout )( x )
 
     return models.Model( inputs=noise, outputs=x )
 
@@ -168,8 +172,8 @@ def sample_fake( gen ):
     # If you use single ranf that spans [0, 1], it will suck.
     # Either normal or ranf works for me but be sure to use them as offset for randint.
     #noises = np.random.normal( scale=0.1, size=((Args.batch_sz,) + Args.noise_shape) )
-    noises = 0.1 * np.random.ranf( size=((Args.batch_sz,) + Args.noise_shape) )
-    noises += np.random.randint( 0, 2, size=((Args.batch_sz,) + Args.noise_shape) )
+    #noises = 0.1 * np.random.ranf( size=((Args.batch_sz,) + Args.noise_shape) )
+    noises = np.random.randint( 0, 2, size=((Args.batch_sz,) + Args.noise_shape)).astype(np.float32)
     fakes = gen.predict(noises)
     return fakes, noises
 
@@ -207,7 +211,7 @@ def build_networks():
     #opt  = optimizers.SGD(lr=0.002, decay=0.0, momentum=0.0, nesterov=True)
     #dopt = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
     dopt = Adam(lr=0.00010, beta_1=0.5)
-    opt  = Adam(lr=0.00001, beta_1=0.5)
+    opt  = Adam(lr=0.00002, beta_1=0.5)
 
     # generator part
     gen = build_gen( shape )
@@ -221,10 +225,10 @@ def build_networks():
     disc.summary()
 
     # GAN stack
-    face = Input( shape=Args.noise_shape )
-    gened = gen( face )
+    noise = Input( shape=Args.noise_shape )
+    gened = gen( noise )
     result = disc( gened )
-    gan = models.Model( inputs=face, outputs=result )
+    gan = models.Model( inputs=noise, outputs=result )
     gan.compile(optimizer=opt, loss='binary_crossentropy')
     gan.summary()
 
@@ -319,7 +323,7 @@ def train_gan( dataf ) :
             gen.trainable = True
        
         # pretrain train discriminator only
-        if batch < 10 or d_loss1 >= 3.0 or d_loss0 >= 3.0 :
+        if batch < 30 or d_loss1 >= 3.0 or d_loss0 >= 3.0 :
             print( batch, "d0:{} d1:{}".format( d_loss0, d_loss1 ) )
             train_disc = True
             continue
