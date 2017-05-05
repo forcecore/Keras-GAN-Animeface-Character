@@ -35,11 +35,7 @@ def make_hdf5(ofname, wildcard):
     '''
     Preprocess files given by wildcard and save them in hdf5 file, as ofname.
     '''
-    pool = list(glob.glob(wildcard))
-    fnames = []
-    for i in range(Args.dataset_sz):
-        # duplicate possible, but don't care.
-        fnames.append(random.choice(pool))
+    fnames = list(glob.glob(wildcard))
 
     with h5py.File(ofname, "w") as f:
         faces = f.create_dataset("faces", (len(fnames), Args.sz, Args.sz, 3), dtype='f')

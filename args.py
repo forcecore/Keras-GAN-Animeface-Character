@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
 class Args :
-    # Sample 2048 images from the anime face dataset
-    dataset_sz = 256
-
     # images size we will work on. (sz, sz, 3)
     sz = 32
     
     # alpha, used by leaky relu.
-    alpha = 0.3
+    alpha = 0.2
 
     # batch size, during training.
     batch_sz = 32
@@ -22,3 +19,9 @@ class Args :
 
     # dropout probability
     dropout = 0.3
+
+    # noisy label magnitude
+    label_noise = 0.1
+
+    # max history to keep
+    max_history = 4

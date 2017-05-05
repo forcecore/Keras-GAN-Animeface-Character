@@ -26,7 +26,7 @@ from data import denormalize4gan
 def build_discriminator( shape ) :
     def conv2d( x, filters, shape=(5, 5), **kwargs ) :
         return Conv2D( filters, shape,
-            padding='same', kernel_initializer='orthogonal', **kwargs )( x )
+            padding='same', **kwargs )( x )
 
     face = Input( shape=shape )
     x = face
@@ -51,7 +51,7 @@ def build_discriminator( shape ) :
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
-    x = Conv2D( 256, (4, 4), kernel_initializer='orthogonal' )( x )
+    x = Conv2D( 256, (4, 4) )( x )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
@@ -70,8 +70,7 @@ def build_discriminator( shape ) :
 
 def build_enc( shape ) :
     def conv2d( x, filters, shape=(5, 5), **kwargs ) :
-        return Conv2D( filters, shape,
-            padding='same', kernel_initializer='orthogonal', **kwargs )( x )
+        return Conv2D( filters, shape, padding='same', **kwargs )( x )
 
     face = Input( shape=shape )
 
@@ -99,7 +98,7 @@ def build_enc( shape ) :
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2 x 2
 
-    x = Conv2D( 256, (4, 4), kernel_initializer='orthogonal' )( x )
+    x = Conv2D( 256, (4, 4) )( x )
     x = Dropout( Args.dropout )( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
@@ -113,8 +112,7 @@ def build_enc( shape ) :
 
 def build_gen( shape ) :
     def deconv2d( x, filters, shape ) :
-        return Conv2DTranspose( filters, shape, strides=(2, 2),
-            padding='same', kernel_initializer='orthogonal' )( x )
+        return Conv2DTranspose( filters, shape, strides=(2, 2), padding='same' )( x )
 
     noise = Input( shape=Args.noise_shape )
     x = noise
@@ -145,36 +143,35 @@ def build_gen( shape ) :
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
 
-    x = Conv2D( 3, (5, 5), padding='same', activation='tanh', kernel_initializer='orthogonal' )( x )
+    x = Conv2D( 3, (5, 5), padding='same', activation='tanh' )( x )
     x = Dropout( Args.dropout )( x )
 
     return models.Model( inputs=noise, outputs=x )
 
 
 
-def make_batch( faces, gen, batch_sz ) :
-    '''
-    result is 2 * batch_sz.
-    1st half is real, 2nd half is fake.
-    '''
+def sample_faces( faces ):
     reals = []
-    for i in range( batch_sz ) :
+    for i in range( Args.batch_sz ) :
         j = random.randrange( len(faces) )
         face = faces[ j ]
         reals.append( face )
     reals = np.array(reals)
+    return reals
 
+
+
+def sample_fake( gen ):
     # Noise can't be plural but I want to put an emphasis that it has length of batch_sz
-    noises = np.random.ranf( (batch_sz,) + Args.noise_shape )
+
+    # Distribution of noise matters.
+    # If you use single ranf that spans [0, 1], it will suck.
+    # Either normal or ranf works for me but be sure to use them as offset for randint.
+    #noises = np.random.normal( scale=0.1, size=((Args.batch_sz,) + Args.noise_shape) )
+    noises = 0.1 * np.random.ranf( size=((Args.batch_sz,) + Args.noise_shape) )
+    noises += np.random.randint( 0, 2, size=((Args.batch_sz,) + Args.noise_shape) )
     fakes = gen.predict(noises)
-
-    return reals, fakes, noises
-
-
-
-def set_trainable( model, trainable ) :
-    for layer in model.layers :
-        layer.trainable = trainable
+    return fakes, noises
 
 
 
@@ -205,13 +202,12 @@ def build_networks():
     shape = (Args.sz, Args.sz, 3)
 
     # Learning rate is important.
-    # The scale of lr is inspired from this example:
-    # https://medium.com/towards-data-science/gan-by-example-using-keras-on-tensorflow-backend-1a6d515a60d0
     # Optimizers are important too, try experimenting them yourself to fit your dataset.
+    # I recommend you read DCGAN paper.
     #opt  = optimizers.SGD(lr=0.002, decay=0.0, momentum=0.0, nesterov=True)
     #dopt = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
-    dopt = Adam(lr=0.00010)
-    opt  = Adam(lr=0.00001)
+    dopt = Adam(lr=0.00010, beta_1=0.5)
+    opt  = Adam(lr=0.00001, beta_1=0.5)
 
     # generator part
     gen = build_gen( shape )
@@ -237,6 +233,9 @@ def build_networks():
 
 
 def train_autoenc( dataf ):
+    '''
+    Train an autoencoder first to see if your network is large enough.
+    '''
     genw = 'gen.init'
     encw = 'enc.hdf5'
 
@@ -268,7 +267,8 @@ def train_autoenc( dataf ):
     while epoch < 1000 :
         try :
             for i in range(10) :
-                reals, fakes, noises = make_batch( faces, gen, Args.batch_sz )
+                reals = sample_faces( faces  )
+                fakes, noises = sample_fake( gen )
                 loss = autoenc.train_on_batch( reals, reals )
                 epoch += 1
                 print(epoch, loss)
@@ -291,7 +291,7 @@ def train_gan( dataf ) :
     # Uncomment these, if you want to continue training from some snapshot.
     genw = 'gen.hdf5'
     genw_init = 'gen.init'
-    gen.load_weights( genw_init )
+    #gen.load_weights( genw_init )
     #gen.load_weights( genw )
     discw = 'disc.hdf5'
     #disc.load_weights( discw )
@@ -299,20 +299,24 @@ def train_gan( dataf ) :
     f = h5py.File( dataf, 'r' )
     faces = f.get( 'faces' )
 
+    history = []
+
     train_disc = True
     for batch in range( 20000 ) :
-        reals, fakes, noises = make_batch( faces, gen, Args.batch_sz )
+        # add noise
+        #reals += np.exp(-batch/2000) * np.random.normal( size=reals.shape )
 
         # Using soft labels here. Not using noisy labels. It sucked for me.
-        zs0 = 0.01 * np.random.ranf(Args.batch_sz)
-        zs1 = 1 - 0.01 * np.random.ranf(Args.batch_sz)
+        zs0 = Args.label_noise * np.random.ranf(Args.batch_sz)
+        zs1 = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
 
-        # train discriminator
+        fakes, noises = sample_fake( gen )
+        reals = sample_faces( faces )
         if train_disc :
-            set_trainable( gen, False )
+            gen.trainable = False
             d_loss1 = disc.train_on_batch( reals, zs1 )
             d_loss0 = disc.train_on_batch( fakes, zs0 )
-            set_trainable( gen, True )
+            gen.trainable = True
        
         # pretrain train discriminator only
         if batch < 10 or d_loss1 >= 3.0 or d_loss0 >= 3.0 :
@@ -320,9 +324,9 @@ def train_gan( dataf ) :
             train_disc = True
             continue
 
-        set_trainable( disc, False )
+        disc.trainable = False
         g_loss = gan.train_on_batch( noises, zs1 ) # try to trick the classifier.
-        set_trainable( disc, True )
+        disc.trainable = True
         train_disc = True if g_loss < 15 else False
 
         print( batch, "d0:{} d1:{}   g:{}".format( d_loss0, d_loss1, g_loss ) )
@@ -355,8 +359,8 @@ def main( argv ) :
     if not os.path.exists(Args.snapshot_dir) :
         os.mkdir(Args.snapshot_dir)
 
-    train_autoenc( "data.hdf5" )
-    #train_gan( "data.hdf5" )
+    #train_autoenc( "data.hdf5" )
+    train_gan( "data.hdf5" )
 
 
 
