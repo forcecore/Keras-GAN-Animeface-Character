@@ -81,7 +81,7 @@ def build_enc( shape ) :
     x = conv2d( face, 32, input_shape=shape )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
-    x = conv2d( x, 32 )
+    x = conv2d( x, 32, strides=(2, 2) )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
@@ -109,9 +109,21 @@ def build_enc( shape ) :
 
 def build_gen( shape ) :
     def deconv2d( x, filters, shape ) :
-        # Conv2DTransposed gives me checkerboard artifact.
-        x = bilinear2x( x, filters )
-        return Conv2D( filters, shape, padding='same' )( x )
+        '''
+        Conv2DTransposed gives me checkerboard artifact...
+        Select one of the 3.
+        '''
+        # Simpe Conv2DTranspose
+        #x= Conv2DTranspose( filters, shape, padding='same', strides=(2, 2) )(x)
+
+        # simple and works
+        x = UpSampling2D( (2, 2) )( x )
+        x = Conv2D( filters, shape, padding='same' )( x )
+
+        # Bilinear2x... Not sure if it is without bug, not tested yet.
+        #x = bilinear2x( x, filters )
+        #x = Conv2D( filters, shape, padding='same' )( x )
+        return x
 
     noise = Input( shape=Args.noise_shape )
     x = noise
@@ -210,8 +222,8 @@ def build_networks():
     # I recommend you read DCGAN paper.
     #opt  = optimizers.SGD(lr=0.002, decay=0.0, momentum=0.0, nesterov=True)
     #dopt = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
-    dopt = Adam(lr=0.00010, beta_1=0.5)
-    opt  = Adam(lr=0.00002, beta_1=0.5)
+    dopt = Adam(lr=0.000050, beta_1=0.5)
+    opt  = Adam(lr=0.000005, beta_1=0.5)
 
     # generator part
     gen = build_gen( shape )
@@ -296,9 +308,9 @@ def train_gan( dataf ) :
     genw = 'gen.hdf5'
     genw_init = 'gen.init'
     #gen.load_weights( genw_init )
-    #gen.load_weights( genw )
+    gen.load_weights( genw )
     discw = 'disc.hdf5'
-    #disc.load_weights( discw )
+    disc.load_weights( discw )
 
     f = h5py.File( dataf, 'r' )
     faces = f.get( 'faces' )
