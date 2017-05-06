@@ -10,6 +10,7 @@ from keras.layers.convolutional import Conv2D, Conv2DTranspose, UpSampling2D
 from keras.layers.core import Dense, Activation, Flatten, Reshape
 from keras.layers import Input
 from keras.optimizers import Adam, Adagrad, Adadelta, Adamax, SGD
+from keras.callbacks import CSVLogger
 # GAN doesn't like spare gradients (says ganhack). LeakyReLU better.
 from keras.layers.advanced_activations import LeakyReLU
 #import matplotlib.pyplot as plt
@@ -296,13 +297,17 @@ def train_gan( dataf ) :
     #gen.load_weights( Args.genw )
     #disc.load_weights( Args.discw )
 
+    logger = CSVLogger('loss.csv') # yeah, you can use callbacks independently
+    logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
         faces = f.get( 'faces' )
-        run_batches(gen, disc, gan, faces, 20000)
+        run_batches(gen, disc, gan, faces, logger, 20000)
+    logger.on_train_end()
 
 
 
-def run_batches(gen, disc, gan, faces, batch_cnt):
+def run_batches(gen, disc, gan, faces, logger, batch_cnt):
+    logs = {}
     train_disc = True
     for batch in range(batch_cnt) :
         # Using soft labels here.
@@ -336,6 +341,8 @@ def run_batches(gen, disc, gan, faces, batch_cnt):
         # save weights every 10 batches
         if batch % 10 == 0 and batch != 0 :
             end_of_batch_task(batch, gen, disc, reals, fakes)
+            row = {"d_loss0": d_loss0, "d_loss1": d_loss1, "g_loss": g_loss}
+            logger.on_epoch_end(batch, row)
 
 
 
