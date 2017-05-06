@@ -16,7 +16,7 @@ class Args :
     batch_sz = 32
 
     # Length of the noise vector to generate the faces from.
-    noise_shape = (1, 1, 256)
+    noise_shape = (1, 1, 128)
 
     # GAN training can be ruined any moment if not careful.
     # Archive some snapshots in this directory.
@@ -27,6 +27,9 @@ class Args :
 
     # noisy label magnitude
     label_noise = 0.1
+
+    # history to keep. Slower training but higher quality.
+    history_sz = 8
 
     genw = "gen.hdf5"
     discw = "gen.hdf5"

@@ -7,6 +7,7 @@ from keras import models
 from keras import optimizers
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D, Conv2DTranspose, UpSampling2D
+from keras.layers.pooling import MaxPooling2D
 from keras.layers.core import Dense, Activation, Flatten, Reshape
 from keras.layers import Input
 from keras.optimizers import Adam, Adagrad, Adadelta, Adamax, SGD
@@ -20,6 +21,7 @@ import h5py
 from args import Args
 from data import denormalize4gan
 from layers import bilinear2x
+from discrimination import MinibatchDiscrimination
 
 #import tensorflow as tf
 #import keras
@@ -32,28 +34,37 @@ def build_discriminator( shape ) :
         return Conv2D( filters, shape,
             padding='same', **kwargs )( x )
 
+    # https://github.com/tdrussell/IllustrationGAN
+    # As proposed by them, unlike GAN hacks, MaxPooling works better for anime dataset it seems.
+
     face = Input( shape=shape )
     x = face
 
-    x = conv2d( x, 32, input_shape=shape )
+    x = conv2d( x, 32 )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
+    # 32x32
 
-    x = conv2d( x, 32, strides=(2, 2) )
+    x = conv2d( x, 32 )
+    x = MaxPooling2D()( x )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
-    x = conv2d( x, 64, strides=(2, 2) )
+    x = conv2d( x, 64 )
+    x = MaxPooling2D()( x )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
-    x = conv2d( x, 128, strides=(2, 2) )
+    x = conv2d( x, 128 )
+    x = MaxPooling2D()( x )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
-    x = conv2d( x, 256, strides=(2, 2) )
+    x = conv2d( x, 256 )
+    x = MaxPooling2D()( x )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2 x 2
@@ -63,11 +74,13 @@ def build_discriminator( shape ) :
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
-    x = Dense( 256 )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    #x = Dense( 256 )( x )
+    #x = LeakyReLU(alpha=Args.alpha)( x )
+    x = Flatten()(x)
+    # add 16 features. Run 1D conv of size 3.
+    x = MinibatchDiscrimination(16, 3)( x )
 
     x = Dense( 1, activation='sigmoid' )( x ) # 1 when "real", 0 when "fake".
-    x = Flatten()( x )
 
     return models.Model( inputs=face, outputs=x )
 
@@ -115,6 +128,7 @@ def build_gen( shape ) :
         Select one of the 3.
         '''
         # Simpe Conv2DTranspose
+        # Not good, compared to upsample + conv2d below.
         #x= Conv2DTranspose( filters, shape, padding='same', strides=(2, 2) )(x)
 
         # simple and works
@@ -125,7 +139,11 @@ def build_gen( shape ) :
         # Tend to make output blurry though
         #x = bilinear2x( x, filters )
         #x = Conv2D( filters, shape, padding='same' )( x )
+
         return x
+
+    # https://github.com/tdrussell/IllustrationGAN  z predictor...?
+    # might help. Not sure.
 
     noise = Input( shape=Args.noise_shape )
     x = noise
@@ -155,6 +173,11 @@ def build_gen( shape ) :
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
+
+    #x = deconv2d( x, 64, (5, 5) )
+    #x = BatchNormalization()( x )
+    #x = LeakyReLU(alpha=Args.alpha)( x )
+    ## 64 x 64
 
     # extra layers for less noisy generation
     for i in range( 2 ) :
@@ -222,10 +245,35 @@ def build_networks():
     # Learning rate is important.
     # Optimizers are important too, try experimenting them yourself to fit your dataset.
     # I recommend you read DCGAN paper.
-    #opt  = optimizers.SGD(lr=0.002, decay=0.0, momentum=0.0, nesterov=True)
-    #dopt = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
-    dopt = Adam(lr=0.00010, beta_1=0.5)
-    opt  = Adam(lr=0.00001, beta_1=0.5)
+
+    # Unlike gan hacks, sgd doesn't seem to work well.
+    # DCGAN paper states that they used Adam for both G and D.
+    #opt  = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
+    #dopt = optimizers.SGD(lr=0.0001, decay=0.0, momentum=0.9, nesterov=True)
+
+    # lr=0.010. Looks good, statistically (low d loss, higher g loss)
+    # but too much for the G to create face.
+    # If you see only one color 'flood fill' during training for about 10 batches or so,
+    # training is failing. If you see only a few colors (instead of colorful noise)
+    # then lr is too high for the opt and G will not have chance to form face.
+    #dopt = Adam(lr=0.010, beta_1=0.5)
+    #opt  = Adam(lr=0.001, beta_1=0.5)
+
+    # vague faces @ 500
+    # Still can't get higher frequency component.
+    #dopt = Adam(lr=0.0010, beta_1=0.5)
+    #opt  = Adam(lr=0.0001, beta_1=0.5)
+
+    # better faces @ 500
+    # but mode collapse after that, probably due to learning rate being too high.
+    # opt.lr = dopt.lr / 10 works nicely. I found this with trial and error.
+    # now same lr, as we are using history to train D multiple times.
+    dopt = Adam(lr=0.000100, beta_1=0.5)
+    opt  = Adam(lr=0.000010, beta_1=0.5)
+
+    # too slow
+    #dopt = Adam(lr=0.000010, beta_1=0.5)
+    #opt  = Adam(lr=0.000001, beta_1=0.5)
 
     # generator part
     gen = build_gen( shape )
@@ -239,6 +287,8 @@ def build_networks():
     disc.summary()
 
     # GAN stack
+    # https://ctmakro.github.io/site/on_learning/fast_gan_in_keras.html is the faster way.
+    # Here, for simplicity, I use slower way (slower due to duplicate computation).
     noise = Input( shape=Args.noise_shape )
     gened = gen( noise )
     result = disc( gened )
@@ -307,7 +357,7 @@ def train_gan( dataf ) :
 
 
 def run_batches(gen, disc, gan, faces, logger, batch_cnt):
-    logs = {}
+    history = [] # need this to prevent G from shifting from mode to mode to trick D.
     train_disc = True
     for batch in range(batch_cnt) :
         # Using soft labels here.
@@ -318,10 +368,16 @@ def run_batches(gen, disc, gan, faces, logger, batch_cnt):
         reals = sample_faces( faces )
         # Add noise...
         # My dataset works without this.
-        #reals += np.exp(-batch/2000) * np.random.normal( size=reals.shape )
+        #reals += 0.5 * np.exp(-batch/100) * np.random.normal( size=reals.shape )
+
+        if batch % 10 == 0 :
+            if len(history) > Args.history_sz:
+                history.pop(0) # evict oldest
+            history.append( (reals, fakes) )
 
         if train_disc :
             gen.trainable = False
+            #for reals, fakes in history:
             d_loss1 = disc.train_on_batch( reals, lbl_real )
             d_loss0 = disc.train_on_batch( fakes, lbl_fake )
             gen.trainable = True
@@ -351,13 +407,13 @@ _bits = np.random.randint( 0, 2,
 def end_of_batch_task(batch, gen, disc, reals, fakes):
     try :
         # Dump how the generator is doing.
-        dump_batch(fakes, 4, "fakes.png")
-        dump_batch(reals, 4, "reals.png") # to see if our input is sane
-
         # Animation dump
+        dump_batch(reals, 4, "reals.png")
+        dump_batch(fakes, 4, "fakes.png") # to check how noisy the image is
         frame = gen.predict(_bits)
         animf = os.path.join(Args.anim_dir, "fakes_{:05d}.png".format(batch))
         dump_batch(frame, 4, animf)
+        dump_batch(frame, 4, "frame.png")
 
         serial = int(batch / 10) % 10
         prefix = os.path.join(Args.snapshot_dir, str(serial) + ".")
@@ -369,6 +425,7 @@ def end_of_batch_task(batch, gen, disc, reals, fakes):
         print("Saving, don't interrupt with Ctrl+C!", serial)
         # recursion to surely save everything haha
         end_of_batch_task(batch, gen, disc, reals, fakes)
+        raise
 
 
 
