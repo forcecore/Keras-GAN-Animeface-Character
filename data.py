@@ -25,9 +25,9 @@ def denormalize4gan(im):
     [-1, 1] to [0, 255].
     Warning: input im is modified in-place!
     '''
-    im += 1
-    im *= 128
-    return im
+    im += 1 # in [0, 2]
+    im *= 127 # in [0, 254]
+    return im.astype(np.uint8)
 
 
 
@@ -74,7 +74,8 @@ def test(hdff):
 if __name__ == "__main__" :
     # Thankfully the dataset is in PNG, not JPEG.
     # Anime style suffers from significant quality degradation in JPEG.
-    make_hdf5("data.hdf5", "animeface-character-dataset/thumb/*/*.png")
+    #make_hdf5("data.hdf5", "animeface-character-dataset/thumb/*/*.png")
+    make_hdf5("data.hdf5", "animeface-character-dataset/thumb/025*/*.png")
 
     # Uncomment and run test, if you want.
     #test("data.hdf5")
