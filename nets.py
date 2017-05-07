@@ -30,8 +30,8 @@ from discrimination import MinibatchDiscrimination
 
 
 def build_discriminator( shape ) :
-    def conv2d( x, filters, shape=(5, 5), **kwargs ) :
-        return Conv2D( filters, shape,
+    def conv2d( x, filters, shape=(4, 4), **kwargs ) :
+        return Conv2D( filters, shape, strides=(2, 2),
             padding='same', **kwargs )( x )
 
     # https://github.com/tdrussell/IllustrationGAN
@@ -40,6 +40,8 @@ def build_discriminator( shape ) :
     face = Input( shape=shape )
     x = face
 
+    # Warning: Don't batchnorm the first set of Conv2D.
+
     #x = conv2d( x, 32 )
     #x = MaxPooling2D()( x )
     ##x = BatchNormalization()( x )
@@ -47,25 +49,25 @@ def build_discriminator( shape ) :
     # 32x32
 
     x = conv2d( x, 32 )
-    x = MaxPooling2D()( x )
+    #x = MaxPooling2D()( x )
     #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
     x = conv2d( x, 64 )
-    x = MaxPooling2D()( x )
-    #x = BatchNormalization()( x )
+    #x = MaxPooling2D()( x )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
     x = conv2d( x, 128 )
-    x = MaxPooling2D()( x )
+    #x = MaxPooling2D()( x )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
     x = conv2d( x, 256 )
-    x = MaxPooling2D()( x )
+    #x = MaxPooling2D()( x )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2 x 2
@@ -81,41 +83,6 @@ def build_discriminator( shape ) :
     x = MinibatchDiscrimination(16, 3)( x )
 
     x = Dense( 1, activation='sigmoid' )( x ) # 1 when "real", 0 when "fake".
-
-    return models.Model( inputs=face, outputs=x )
-
-
-
-def build_enc( shape ) :
-    def conv2d( x, filters, shape=(5, 5), **kwargs ) :
-        return Conv2D( filters, shape, padding='same', **kwargs )( x )
-
-    face = Input( shape=shape )
-
-    x = conv2d( face, 32, input_shape=shape )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 32 x 32
-    x = conv2d( x, 32, strides=(2, 2) )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 16 x 16
-
-    x = conv2d( x, 64, strides=(2, 2) )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 8 x 8
-
-    x = conv2d( x, 128, strides=(2, 2) )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 4 x 4
-
-    x = Conv2D( 256, (3, 3) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 2 x 2
-
-    x = Conv2D( 256, (2, 2) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 1x1
-
-    x = Conv2D( Args.noise_shape[2], (1, 1), activation='tanh' )( x )
 
     return models.Model( inputs=face, outputs=x )
 
@@ -150,35 +117,71 @@ def build_gen( shape ) :
     # 1x1x256
     # noise is not useful for generating images.
 
-    x = deconv2d( x, 256, (5, 5) )
-    #x = BatchNormalization()( x )
+    x = deconv2d( x, 256, (4, 4) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2x2
-    x = deconv2d( x, 256, (5, 5) )
-    #x = BatchNormalization()( x )
+    x = deconv2d( x, 256, (4, 4) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4x4
 
-    x = deconv2d( x, 256, (5, 5) )
-    #x = BatchNormalization()( x )
+    x = deconv2d( x, 256, (4, 4) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
-    x = deconv2d( x, 128, (5, 5) )
-    #x = BatchNormalization()( x )
+    x = deconv2d( x, 128, (4, 4) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
-    x = deconv2d( x, 64, (5, 5) )
-    #x = BatchNormalization()( x )
+    x = deconv2d( x, 64, (4, 4) )
+    x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
 
-    #x = deconv2d( x, 64, (5, 5) )
+    #x = deconv2d( x, 64, (4, 4) )
     #x = BatchNormalization()( x )
     #x = LeakyReLU(alpha=Args.alpha)( x )
     ## 64 x 64
 
-    x = Conv2D( 3, (5, 5), padding='same', activation='tanh' )( x )
+    # Don't batch norm this one, ofcourse.
+    x = Conv2D( 3, (4, 4), padding='same', activation='tanh' )( x )
 
     return models.Model( inputs=noise, outputs=x )
+
+
+
+def build_enc( shape ) :
+    def conv2d( x, filters, shape=(4, 4), **kwargs ) :
+        return Conv2D( filters, shape, padding='same', **kwargs )( x )
+
+    face = Input( shape=shape )
+
+    x = conv2d( face, 32, input_shape=shape )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 32 x 32
+    x = conv2d( x, 32, strides=(2, 2) )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 16 x 16
+
+    x = conv2d( x, 64, strides=(2, 2) )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 8 x 8
+
+    x = conv2d( x, 128, strides=(2, 2) )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 4 x 4
+
+    x = Conv2D( 256, (3, 3) )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 2 x 2
+
+    x = Conv2D( 256, (2, 2) )( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 1x1
+
+    x = Conv2D( Args.noise_shape[2], (1, 1), activation='tanh' )( x )
+
+    return models.Model( inputs=face, outputs=x )
