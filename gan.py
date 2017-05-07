@@ -41,42 +41,41 @@ def build_discriminator( shape ) :
     x = face
 
     x = conv2d( x, 32 )
-    x = BatchNormalization()( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32x32
 
     x = conv2d( x, 32 )
     x = MaxPooling2D()( x )
-    x = BatchNormalization()( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
     x = conv2d( x, 64 )
     x = MaxPooling2D()( x )
-    x = BatchNormalization()( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
     x = conv2d( x, 128 )
     x = MaxPooling2D()( x )
-    x = BatchNormalization()( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4 x 4
 
     x = conv2d( x, 256 )
     x = MaxPooling2D()( x )
-    x = BatchNormalization()( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2 x 2
 
     x = Conv2D( 512, (2, 2) )( x )
-    x = BatchNormalization()( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
-    #x = Dense( 256 )( x )
-    #x = LeakyReLU(alpha=Args.alpha)( x )
     x = Flatten()(x)
+
     # add 16 features. Run 1D conv of size 3.
     x = MinibatchDiscrimination(16, 3)( x )
 
@@ -115,7 +114,7 @@ def build_enc( shape ) :
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
-    x = Conv2D( 256, (1, 1), activation='sigmoid' )( x )
+    x = Conv2D( Args.noise_shape[2], (1, 1), activation='sigmoid' )( x )
 
     return models.Model( inputs=face, outputs=x )
 
@@ -202,17 +201,27 @@ def sample_faces( faces ):
 
 
 
-def sample_fake( gen ):
-    # Noise can't be plural but I want to put an emphasis that it has length of batch_sz
-
+def binary_noise(cnt):
     # Distribution of noise matters.
     # If you use single ranf that spans [0, 1], training will not work.
     # Either normal or ranf works for me but be sure to use them with randrange(2) or something.
     #noises = np.random.normal( scale=0.1, size=((Args.batch_sz,) + Args.noise_shape) )
     #noises = 0.1 * np.random.ranf( size=((Args.batch_sz,) + Args.noise_shape) )
-    noises = np.random.randint(0, 2, size=((Args.batch_sz,) + Args.noise_shape)).astype(np.float32)
-    fakes = gen.predict(noises)
-    return fakes, noises
+
+    # Note about noise rangel.
+    # 0, 1 noise vs -1, 1 noise. -1, 1 seems to be better and stable.
+
+    noise = np.random.randint(0, 2, size=((cnt,) + Args.noise_shape)).astype(np.float32)
+    noise -= 0.5
+    noise *= 2
+    return noise
+
+
+
+def sample_fake( gen ) :
+    noise = binary_noise(Args.batch_sz)
+    fakes = gen.predict(noise)
+    return fakes, noise
 
 
 
@@ -268,7 +277,7 @@ def build_networks():
     # but mode collapse after that, probably due to learning rate being too high.
     # opt.lr = dopt.lr / 10 works nicely. I found this with trial and error.
     # now same lr, as we are using history to train D multiple times.
-    dopt = Adam(lr=0.000100, beta_1=0.5)
+    dopt = Adam(lr=0.000020, beta_1=0.5)
     opt  = Adam(lr=0.000010, beta_1=0.5)
 
     # too slow
@@ -361,8 +370,10 @@ def run_batches(gen, disc, gan, faces, logger, batch_cnt):
     train_disc = True
     for batch in range(batch_cnt) :
         # Using soft labels here.
-        lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
-        lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
+        #lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
+        #lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
+        lbl_fake = np.zeros(Args.batch_sz)
+        lbl_real = np.ones(Args.batch_sz)
 
         fakes, noises = sample_fake( gen )
         reals = sample_faces( faces )
@@ -402,8 +413,7 @@ def run_batches(gen, disc, gan, faces, logger, batch_cnt):
 
 
 
-_bits = np.random.randint( 0, 2,
-    size=((Args.batch_sz,) + Args.noise_shape)).astype(np.float32)
+_bits = binary_noise(Args.batch_sz)
 def end_of_batch_task(batch, gen, disc, reals, fakes):
     try :
         # Dump how the generator is doing.
@@ -435,11 +445,10 @@ def generate( genw, cnt ):
     gen.compile(optimizer='sgd', loss='mse')
     gen.load_weights(genw)
 
-    noise = np.random.randint( 0, 2, size=((cnt,) + Args.noise_shape)).astype(np.float32)
-    generated = gen.predict(noise)
+    generated = gen.predict(binary_noise(Args.batch_sz))
     # Unoffset, in batch.
     # Must convert back to unit8 to stop color distortion.
-    generated = denormalize4gan(generated).astype(np.uint8)
+    generated = denormalize4gan(generated)
 
     for i in range(cnt):
         ofname = "{:04d}.png".format(i)
