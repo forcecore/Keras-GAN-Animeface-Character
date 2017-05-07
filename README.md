@@ -15,6 +15,7 @@ should an example on something more realistic.
     * https://github.com/soumith/ganhacks
 * A PyTorch for the same purpose:
     * https://github.com/jayleicn/animeGAN
+    * https://github.com/tdrussell/IllustrationGAN
 * I used slow implementation for the sake of simplicity. However, the correct way is:
     * https://ctmakro.github.io/site/on_learning/fast_gan_in_keras.html
 
