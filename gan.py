@@ -117,7 +117,7 @@ def build_networks():
     # but mode collapse after that, probably due to learning rate being too high.
     # opt.lr = dopt.lr / 10 works nicely. I found this with trial and error.
     # now same lr, as we are using history to train D multiple times.
-    dopt = Adam(lr=0.0002, beta_1=0.5)
+    dopt = Adam(lr=0.0001, beta_1=0.5)
     opt  = Adam(lr=0.0001, beta_1=0.5)
 
     # too slow
@@ -200,7 +200,7 @@ def train_gan( dataf ) :
     logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
         faces = f.get( 'faces' )
-        run_batches(gen, disc, gan, faces, logger, 20000)
+        run_batches(gen, disc, gan, faces, logger, 50000)
     logger.on_train_end()
 
 
@@ -303,6 +303,8 @@ def main( argv ) :
         os.mkdir(Args.anim_dir)
 
     # test the capability of generator network through autoencoder test.
+    # The argument is that if the generator network can memorize the inputs then
+    # it should be enough to GAN-generate stuff.
     #train_autoenc( "data.hdf5" )
 
     # train GAN with inputs in data.hdf5

@@ -31,8 +31,13 @@ from discrimination import MinibatchDiscrimination
 
 def build_discriminator( shape ) :
     def conv2d( x, filters, shape=(4, 4), **kwargs ) :
+        '''
+        I don't want to write lengthy parameters so I made a short hand function.
+        '''
         return Conv2D( filters, shape, strides=(2, 2),
-            padding='same', **kwargs )( x )
+            padding='same', use_bias=False,
+            kernel_initializer=Args.kernel_initializer,
+            **kwargs )( x )
 
     # https://github.com/tdrussell/IllustrationGAN
     # As proposed by them, unlike GAN hacks, MaxPooling works better for anime dataset it seems.
@@ -72,31 +77,32 @@ def build_discriminator( shape ) :
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2 x 2
 
-    x = Conv2D( 512, (2, 2) )( x )
-    x = BatchNormalization()( x )
+    x = Conv2D( 512, (2, 2), kernel_initializer=Args.kernel_initializer )( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 1x1
 
     x = Flatten()(x)
 
     # add 16 features. Run 1D conv of size 3.
-    x = MinibatchDiscrimination(16, 3)( x )
+    #x = MinibatchDiscrimination(16, 3)( x )
 
-    x = Dense( 1, activation='sigmoid' )( x ) # 1 when "real", 0 when "fake".
+    x = Dense( 1, activation='sigmoid', kernel_initializer=Args.kernel_initializer )( x ) # 1 when "real", 0 when "fake".
 
     return models.Model( inputs=face, outputs=x )
 
 
 
 def build_gen( shape ) :
-    def deconv2d( x, filters, shape ) :
+    def deconv2d( x, filters, shape=(4, 4) ) :
         '''
         Conv2DTransposed gives me checkerboard artifact...
         Select one of the 3.
         '''
         # Simpe Conv2DTranspose
         # Not good, compared to upsample + conv2d below.
-        x= Conv2DTranspose( filters, shape, padding='same', strides=(2, 2) )(x)
+        x= Conv2DTranspose( filters, shape, padding='same',
+            strides=(2, 2), kernel_initializer=Args.kernel_initializer )(x)
 
         # simple and works
         #x = UpSampling2D( (2, 2) )( x )
@@ -117,27 +123,32 @@ def build_gen( shape ) :
     # 1x1x256
     # noise is not useful for generating images.
 
-    x = deconv2d( x, 256, (4, 4) )
+    x = deconv2d( x, 256 )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 2x2
-    x = deconv2d( x, 256, (4, 4) )
+    x = deconv2d( x, 256 )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 4x4
 
-    x = deconv2d( x, 256, (4, 4) )
+    x = deconv2d( x, 256 )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 8 x 8
 
-    x = deconv2d( x, 128, (4, 4) )
+    x = deconv2d( x, 128 )
     x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 16 x 16
 
-    x = deconv2d( x, 64, (4, 4) )
+    x = deconv2d( x, 64 )
     x = BatchNormalization()( x )
+    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 32 x 32
+
+    x = Conv2D( 32, (3, 3), padding='same', kernel_initializer=Args.kernel_initializer )( x )
+    #x = BatchNormalization()( x )
     x = LeakyReLU(alpha=Args.alpha)( x )
     # 32 x 32
 
@@ -147,7 +158,8 @@ def build_gen( shape ) :
     ## 64 x 64
 
     # Don't batch norm this one, ofcourse.
-    x = Conv2D( 3, (4, 4), padding='same', activation='tanh' )( x )
+    x = Conv2D( 3, (3, 3), padding='same', activation='tanh',
+        kernel_initializer=Args.kernel_initializer )( x )
 
     return models.Model( inputs=noise, outputs=x )
 
