@@ -36,10 +36,13 @@ def make_hdf5(ofname, wildcard):
     Preprocess files given by wildcard and save them in hdf5 file, as ofname.
     '''
     pool = list(glob.glob(wildcard))
-    fnames = []
-    for i in range(Args.dataset_sz):
-        # possible duplicate but don't care
-        fnames.append(random.choice(pool))
+    if Args.dataset_sz <= 0:
+        fnames = pool
+    else:
+        fnames = []
+        for i in range(Args.dataset_sz):
+            # possible duplicate but don't care
+            fnames.append(random.choice(pool))
 
     with h5py.File(ofname, "w") as f:
         faces = f.create_dataset("faces", (len(fnames), Args.sz, Args.sz, 3), dtype='f')
@@ -74,8 +77,8 @@ def test(hdff):
 if __name__ == "__main__" :
     # Thankfully the dataset is in PNG, not JPEG.
     # Anime style suffers from significant quality degradation in JPEG.
-    #make_hdf5("data.hdf5", "animeface-character-dataset/thumb/*/*.png")
-    make_hdf5("data.hdf5", "animeface-character-dataset/thumb/025*/*.png")
+    make_hdf5("data.hdf5", "animeface-character-dataset/thumb/*/*.png")
+    #make_hdf5("data.hdf5", "animeface-character-dataset/thumb/025*/*.png")
 
     # Uncomment and run test, if you want.
     #test("data.hdf5")

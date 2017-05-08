@@ -1,5 +1,8 @@
 # Keras-GAN-Animeface-Character
 
+WORK IN PROGRESS.
+DOESN'T WORK YET!!
+
 GAN example for Keras. Cuz MNIST is too small and there
 should an example on something more realistic.
 
@@ -50,6 +53,8 @@ should an example on something more realistic.
         * Made it small to verify the training is working.
         * You can increase it but you need to adjust the network sizes accordingly.
     * Again, which files to read is defined in the script at the bottom, not by sys.argv.
+* You need a large enough dataset. Otherwise the discriminator will sort of "memorize"
+  the true data and reject all that's generated.
 
 ### Training
 * Open gan.py then at the bottom, uncomment train\_autoenc() if you wish.

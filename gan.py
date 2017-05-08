@@ -5,22 +5,14 @@ import numpy as np
 import random
 from keras import models
 from keras import optimizers
-from keras.layers.normalization import BatchNormalization
-from keras.layers.convolutional import Conv2D, Conv2DTranspose, UpSampling2D
-from keras.layers.pooling import MaxPooling2D
-from keras.layers.core import Dense, Activation, Flatten, Reshape
 from keras.layers import Input
 from keras.optimizers import Adam, Adagrad, Adadelta, Adamax, SGD
 from keras.callbacks import CSVLogger
-# GAN doesn't like spare gradients (says ganhack). LeakyReLU better.
-from keras.layers.advanced_activations import LeakyReLU
-#import matplotlib.pyplot as plt
-# matplotlib is slow for displaying output for me.
 import scipy
 import h5py
 from args import Args
 from data import denormalize4gan
-from layers import bilinear2x
+#from layers import bilinear2x
 from discrimination import MinibatchDiscrimination
 from nets import build_discriminator, build_gen, build_enc
 
@@ -44,13 +36,17 @@ def sample_faces( faces ):
 def binary_noise(cnt):
     # Distribution of noise matters.
     # If you use single ranf that spans [0, 1], training will not work.
+    # Well, for me at least.
     # Either normal or ranf works for me but be sure to use them with randrange(2) or something.
-    noise = np.random.normal( scale=0.1, size=((Args.batch_sz,) + Args.noise_shape) )
+    #noise = np.random.normal( scale=Args.label_noise, size=((Args.batch_sz,) + Args.noise_shape) )
 
     # Note about noise rangel.
     # 0, 1 noise vs -1, 1 noise. -1, 1 seems to be better and stable.
 
-    noise += np.random.randint(0, 2, size=((cnt,) + Args.noise_shape))
+    #noise = Args.label_noise * np.random.ranf((cnt,) + Args.noise_shape)
+    #noise += np.random.randint(0, 2, size=((cnt,) + Args.noise_shape))
+
+    noise = np.random.ranf((cnt,) + Args.noise_shape)
     noise -= 0.5
     noise *= 2
     return noise
@@ -83,7 +79,7 @@ def dump_batch(imgs, cnt, ofname):
 
     alles = np.concatenate( rows, axis=0 )
     alles = denormalize4gan( alles )
-    alles = scipy.misc.imresize(alles, 200) # uncomment to scale
+    #alles = scipy.misc.imresize(alles, 200) # uncomment to scale
     scipy.misc.imsave( ofname, alles )
 
 
@@ -126,8 +122,7 @@ def build_networks():
 
     # generator part
     gen = build_gen( shape )
-    # generator is not directly trained. Optimizer and loss doesn't matter too much.
-    gen.compile(optimizer=opt, loss='mse')
+    gen.compile(optimizer=opt, loss='binary_crossentropy')
     gen.summary()
 
     # discriminator part
@@ -210,10 +205,8 @@ def run_batches(gen, disc, gan, faces, logger, batch_cnt):
     train_disc = True
     for batch in range(batch_cnt) :
         # Using soft labels here.
-        #lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
-        #lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
-        lbl_fake = np.zeros(Args.batch_sz)
-        lbl_real = np.ones(Args.batch_sz)
+        lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
+        lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
 
         fakes, noises = sample_fake( gen )
         reals = sample_faces( faces )
@@ -234,7 +227,7 @@ def run_batches(gen, disc, gan, faces, logger, batch_cnt):
             gen.trainable = True
        
         # pretrain train discriminator only (or, make D catch up if it is behind)
-        if batch < 30 or d_loss1 >= 3.0 or d_loss0 >= 3.0 :
+        if batch < 20 or d_loss1 > 15.0 or d_loss0 > 15.0 :
             print( batch, "d0:{} d1:{}".format( d_loss0, d_loss1 ) )
             train_disc = True
             continue

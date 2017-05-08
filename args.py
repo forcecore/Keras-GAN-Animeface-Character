@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 
 class Args :
-    dataset_sz = 2048
+    # dataset size... Use positive number to sample subset of the full dataset.
+    dataset_sz = -1
 
     # Archive outputs of training here for animating later.
     anim_dir = "anim"
 
     # images size we will work on. (sz, sz, 3)
-    sz = 32
+    sz = 64
     
-    # alpha, used by leaky relu.
-    alpha = 0.2
+    # alpha, used by leaky relu of D and G networks.
+    alpha_D = 0.2
+    alpha_G = 0.2
 
     # batch size, during training.
-    batch_sz = 64
+    batch_sz = 32
 
     # Length of the noise vector to generate the faces from.
     # Latent space z
@@ -37,4 +39,5 @@ class Args :
 
     # Weight initialization function.
     # This one does matter, default 'glorot_uniform' doesn't seem to work well.
-    kernel_initializer = 'Orthogonal'
+    #kernel_initializer = 'Orthogonal'
+    kernel_initializer = 'RandomNormal'

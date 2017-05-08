@@ -8,14 +8,12 @@ from keras import optimizers
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D, Conv2DTranspose, UpSampling2D
 from keras.layers.pooling import MaxPooling2D
-from keras.layers.core import Dense, Activation, Flatten, Reshape
+from keras.layers.core import Dense, Activation, Flatten, Reshape, Dropout
 from keras.layers import Input
 from keras.optimizers import Adam, Adagrad, Adadelta, Adamax, SGD
 from keras.callbacks import CSVLogger
 # GAN doesn't like spare gradients (says ganhack). LeakyReLU better.
 from keras.layers.advanced_activations import LeakyReLU
-#import matplotlib.pyplot as plt
-# matplotlib is slow for displaying output for me.
 import scipy
 import h5py
 from args import Args
@@ -34,10 +32,14 @@ def build_discriminator( shape ) :
         '''
         I don't want to write lengthy parameters so I made a short hand function.
         '''
-        return Conv2D( filters, shape, strides=(2, 2),
-            padding='same', use_bias=False,
+        x = Conv2D( filters, shape, strides=(2, 2),
+            padding='same',
             kernel_initializer=Args.kernel_initializer,
             **kwargs )( x )
+        #x = MaxPooling2D()( x )
+        x = BatchNormalization()( x )
+        x = LeakyReLU(alpha=Args.alpha_D)( x )
+        return x
 
     # https://github.com/tdrussell/IllustrationGAN
     # As proposed by them, unlike GAN hacks, MaxPooling works better for anime dataset it seems.
@@ -46,40 +48,24 @@ def build_discriminator( shape ) :
     x = face
 
     # Warning: Don't batchnorm the first set of Conv2D.
-
-    #x = conv2d( x, 32 )
-    #x = MaxPooling2D()( x )
-    ##x = BatchNormalization()( x )
-    #x = LeakyReLU(alpha=Args.alpha)( x )
+    x = Conv2D( 32, (4, 4), strides=(2, 2),
+        padding='same',
+        kernel_initializer=Args.kernel_initializer )( x )
+    x = LeakyReLU(alpha=Args.alpha_D)( x )
     # 32x32
 
-    x = conv2d( x, 32 )
-    #x = MaxPooling2D()( x )
-    #x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 16 x 16
-
     x = conv2d( x, 64 )
-    #x = MaxPooling2D()( x )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 8 x 8
+    # 16x16
 
     x = conv2d( x, 128 )
-    #x = MaxPooling2D()( x )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 4 x 4
+    # 8x8
 
     x = conv2d( x, 256 )
-    #x = MaxPooling2D()( x )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 2 x 2
+    # 4x4
 
-    x = Conv2D( 512, (2, 2), kernel_initializer=Args.kernel_initializer )( x )
-    #x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x = Conv2D( 512, (4, 4),
+        kernel_initializer=Args.kernel_initializer )( x )
+    x = LeakyReLU(alpha=Args.alpha_D)( x )
     # 1x1
 
     x = Flatten()(x)
@@ -87,7 +73,11 @@ def build_discriminator( shape ) :
     # add 16 features. Run 1D conv of size 3.
     #x = MinibatchDiscrimination(16, 3)( x )
 
-    x = Dense( 1, activation='sigmoid', kernel_initializer=Args.kernel_initializer )( x ) # 1 when "real", 0 when "fake".
+    #x = Dense(1024, kernel_initializer=Args.kernel_initializer)( x )
+    #x = LeakyReLU(alpha=Args.alpha_D)( x )
+
+    # 1 when "real", 0 when "fake".
+    x = Dense(1, activation='sigmoid', kernel_initializer=Args.kernel_initializer)( x )
 
     return models.Model( inputs=face, outputs=x )
 
@@ -113,6 +103,8 @@ def build_gen( shape ) :
         #x = bilinear2x( x, filters )
         #x = Conv2D( filters, shape, padding='same' )( x )
 
+        x = BatchNormalization()( x )
+        x = LeakyReLU(alpha=Args.alpha_G)( x )
         return x
 
     # https://github.com/tdrussell/IllustrationGAN  z predictor...?
@@ -123,41 +115,28 @@ def build_gen( shape ) :
     # 1x1x256
     # noise is not useful for generating images.
 
-    x = deconv2d( x, 256 )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x= Conv2DTranspose( 512, (2, 2), padding='same',
+        strides=(2, 2), kernel_initializer=Args.kernel_initializer )(x)
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 2x2
-    x = deconv2d( x, 256 )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x= Conv2DTranspose( 512, (4, 4), padding='same',
+        strides=(2, 2), kernel_initializer=Args.kernel_initializer )(x)
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 4x4
-
     x = deconv2d( x, 256 )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 8 x 8
-
+    # 8x8
     x = deconv2d( x, 128 )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 16 x 16
-
+    # 16x16
     x = deconv2d( x, 64 )
-    x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    # 32x32
+    x = deconv2d( x, 32 )
+    # 64x64
+
+    x = Conv2D( 32, (3, 3), padding='same',
+        kernel_initializer=Args.kernel_initializer )( x )
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 32 x 32
 
-    x = Conv2D( 32, (3, 3), padding='same', kernel_initializer=Args.kernel_initializer )( x )
-    #x = BatchNormalization()( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
-    # 32 x 32
-
-    #x = deconv2d( x, 64, (4, 4) )
-    #x = BatchNormalization()( x )
-    #x = LeakyReLU(alpha=Args.alpha)( x )
-    ## 64 x 64
-
-    # Don't batch norm this one, ofcourse.
     x = Conv2D( 3, (3, 3), padding='same', activation='tanh',
         kernel_initializer=Args.kernel_initializer )( x )
 
@@ -172,26 +151,26 @@ def build_enc( shape ) :
     face = Input( shape=shape )
 
     x = conv2d( face, 32, input_shape=shape )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 32 x 32
     x = conv2d( x, 32, strides=(2, 2) )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 16 x 16
 
     x = conv2d( x, 64, strides=(2, 2) )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 8 x 8
 
     x = conv2d( x, 128, strides=(2, 2) )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 4 x 4
 
     x = Conv2D( 256, (3, 3) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 2 x 2
 
     x = Conv2D( 256, (2, 2) )( x )
-    x = LeakyReLU(alpha=Args.alpha)( x )
+    x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 1x1
 
     x = Conv2D( Args.noise_shape[2], (1, 1), activation='tanh' )( x )
