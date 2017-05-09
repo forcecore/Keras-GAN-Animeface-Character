@@ -43,10 +43,10 @@ def binary_noise(cnt):
     # Note about noise rangel.
     # 0, 1 noise vs -1, 1 noise. -1, 1 seems to be better and stable.
 
-    #noise = Args.label_noise * np.random.ranf((cnt,) + Args.noise_shape)
-    #noise += np.random.randint(0, 2, size=((cnt,) + Args.noise_shape))
+    noise = Args.label_noise * np.random.ranf((cnt,) + Args.noise_shape) # [0, 0.1]
+    noise -= 0.05 # [-0.05, 0.05]
+    noise += np.random.randint(0, 2, size=((cnt,) + Args.noise_shape))
 
-    noise = np.random.ranf((cnt,) + Args.noise_shape)
     noise -= 0.5
     noise *= 2
     return noise
@@ -122,6 +122,7 @@ def build_networks():
 
     # generator part
     gen = build_gen( shape )
+    # loss function doesn't seem to matter for this one, as it is not directly trained
     gen.compile(optimizer=opt, loss='binary_crossentropy')
     gen.summary()
 
@@ -171,7 +172,7 @@ def train_autoenc( dataf ):
     autoenc.compile(optimizer=opt, loss='mse')
 
     epoch = 0
-    while epoch < 1000 :
+    while epoch < 200 :
         for i in range(10) :
             reals = sample_faces( faces  )
             fakes, noises = sample_fake( gen )
@@ -181,6 +182,7 @@ def train_autoenc( dataf ):
         fakes = autoenc.predict(reals)
         dump_batch(fakes, 4, "fakes.png")
         dump_batch(reals, 4, "reals.png")
+    gen.save_weights(Args.genw)
 
 
 
@@ -188,22 +190,23 @@ def train_gan( dataf ) :
     gen, disc, gan = build_networks()
 
     # Uncomment these, if you want to continue training from some snapshot.
-    #gen.load_weights( Args.genw )
-    #disc.load_weights( Args.discw )
+    # (or load pretrained generator weights)
+    gen.load_weights( Args.genw )
+    disc.load_weights( Args.discw )
 
     logger = CSVLogger('loss.csv') # yeah, you can use callbacks independently
     logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
-        faces = f.get( 'faces' )
-        run_batches(gen, disc, gan, faces, logger, 50000)
+        faces = f.get( 'faces' ) # 
+        run_batches(gen, disc, gan, faces, logger, range(340000, 500000))
     logger.on_train_end()
 
 
 
-def run_batches(gen, disc, gan, faces, logger, batch_cnt):
+def run_batches(gen, disc, gan, faces, logger, itr_generator):
     history = [] # need this to prevent G from shifting from mode to mode to trick D.
     train_disc = True
-    for batch in range(batch_cnt) :
+    for batch in itr_generator:
         # Using soft labels here.
         lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
         lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
@@ -235,7 +238,12 @@ def run_batches(gen, disc, gan, faces, logger, batch_cnt):
         disc.trainable = False
         g_loss = gan.train_on_batch( noises, lbl_real ) # try to trick the classifier.
         disc.trainable = True
-        train_disc = True if g_loss < 15 else False
+
+        # To escape this loop, both D and G should be trained so that
+        # D begins to mark everything that's wrong that G has done.
+        # Otherwise G will only change locally and fail to escape the minima.
+        #train_disc = True if g_loss < 15 else False
+
         print( batch, "d0:{} d1:{}   g:{}".format( d_loss0, d_loss1, g_loss ) )
 
         # save weights every 10 batches
@@ -254,7 +262,7 @@ def end_of_batch_task(batch, gen, disc, reals, fakes):
         dump_batch(reals, 4, "reals.png")
         dump_batch(fakes, 4, "fakes.png") # to check how noisy the image is
         frame = gen.predict(_bits)
-        animf = os.path.join(Args.anim_dir, "fakes_{:05d}.png".format(batch))
+        animf = os.path.join(Args.anim_dir, "frame_{:08d}.png".format(batch))
         dump_batch(frame, 4, animf)
         dump_batch(frame, 4, "frame.png")
 
@@ -298,6 +306,8 @@ def main( argv ) :
     # test the capability of generator network through autoencoder test.
     # The argument is that if the generator network can memorize the inputs then
     # it should be enough to GAN-generate stuff.
+    # Pretraining gen isn't that useful in gan training as
+    # the untrained discriminator will soon ruin everything.
     #train_autoenc( "data.hdf5" )
 
     # train GAN with inputs in data.hdf5
