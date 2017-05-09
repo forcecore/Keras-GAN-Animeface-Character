@@ -75,7 +75,6 @@ def build_discriminator( shape, build_disc=True ) :
 
     if build_disc:
         x = Flatten()(x)
-
         # add 16 features. Run 1D conv of size 3.
         #x = MinibatchDiscrimination(16, 3)( x )
 
@@ -83,13 +82,12 @@ def build_discriminator( shape, build_disc=True ) :
         #x = LeakyReLU(alpha=Args.alpha_D)( x )
 
         # 1 when "real", 0 when "fake".
-        x = Dense(1, activation='sigmoid',
+        x = Dense(1, activation='sigmoid', name="det",
             kernel_initializer=Args.kernel_initializer)( x )
-
         return models.Model( inputs=face, outputs=x )
     else:
         # build encoder.
-        x = Conv2D(Args.noise_shape[2], (4, 4), activation='tanh')(x)
+        x = Conv2D(Args.noise_shape[2], (4, 4), activation='tanh', name="enc")(x)
         return models.Model( inputs=face, outputs=x )
 
 
