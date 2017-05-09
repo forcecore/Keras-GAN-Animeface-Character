@@ -40,6 +40,6 @@ class Args :
     # Weight initialization function.
     #kernel_initializer = 'Orthogonal'
     #kernel_initializer = 'RandomNormal'
-    # Same as default in Keras, but good for GAN, say
+    # Same as default in Keras, but good for GAN, says
     # https://github.com/gheinrich/DIGITS-GAN/blob/master/examples/weight-init/README.md#experiments-with-lenet-on-mnist
     kernel_initializer = 'glorot_uniform'
