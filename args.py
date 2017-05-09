@@ -43,5 +43,3 @@ class Args :
     # Same as default in Keras, but good for GAN, say
     # https://github.com/gheinrich/DIGITS-GAN/blob/master/examples/weight-init/README.md#experiments-with-lenet-on-mnist
     kernel_initializer = 'glorot_uniform'
-
-    pretrain_gen = False
