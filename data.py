@@ -71,6 +71,7 @@ def test(hdff):
             print(np.min(X))
             assert np.max(X) <= 1.0
             assert np.min(X) >= -1.0
+        print("Dataset size:", len(Xs))
 
 
 
