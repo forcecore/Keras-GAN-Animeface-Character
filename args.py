@@ -38,6 +38,10 @@ class Args :
     discw = "disc.hdf5"
 
     # Weight initialization function.
-    # This one does matter, default 'glorot_uniform' doesn't seem to work well.
     #kernel_initializer = 'Orthogonal'
-    kernel_initializer = 'RandomNormal'
+    #kernel_initializer = 'RandomNormal'
+    # Same as default in Keras, but good for GAN, say
+    # https://github.com/gheinrich/DIGITS-GAN/blob/master/examples/weight-init/README.md#experiments-with-lenet-on-mnist
+    kernel_initializer = 'glorot_uniform'
+
+    pretrain_gen = False
