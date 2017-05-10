@@ -82,12 +82,12 @@ def build_discriminator( shape, build_disc=True ) :
         #x = LeakyReLU(alpha=Args.alpha_D)( x )
 
         # 1 when "real", 0 when "fake".
-        x = Dense(1, activation='sigmoid', name="det",
+        x = Dense(1, activation='sigmoid',
             kernel_initializer=Args.kernel_initializer)( x )
         return models.Model( inputs=face, outputs=x )
     else:
         # build encoder.
-        x = Conv2D(Args.noise_shape[2], (4, 4), activation='tanh', name="enc")(x)
+        x = Conv2D(Args.noise_shape[2], (4, 4), activation='tanh')(x)
         return models.Model( inputs=face, outputs=x )
 
 

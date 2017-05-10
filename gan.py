@@ -113,8 +113,10 @@ def build_networks():
     # but mode collapse after that, probably due to learning rate being too high.
     # opt.lr = dopt.lr / 10 works nicely. I found this with trial and error.
     # now same lr, as we are using history to train D multiple times.
-    dopt = Adam(lr=0.0001, beta_1=0.5)
-    opt  = Adam(lr=0.0001, beta_1=0.5)
+    # I don't exactly understand how decay parameter in Adam works. Certainly not exponential.
+    # Actually faster than exponential, when I look at the code and plot it in Excel.
+    dopt = Adam(lr=0.00002, beta_1=0.5)
+    opt  = Adam(lr=0.00001, beta_1=0.5)
 
     # too slow
     #dopt = Adam(lr=0.000010, beta_1=0.5)
@@ -183,6 +185,8 @@ def train_autoenc( dataf ):
         dump_batch(fakes, 4, "fakes.png")
         dump_batch(reals, 4, "reals.png")
     gen.save_weights(Args.genw)
+    enc.save_weights(Args.discw)
+    print("Saved", Args.genw, Args.discw)
 
 
 
@@ -191,14 +195,22 @@ def train_gan( dataf ) :
 
     # Uncomment these, if you want to continue training from some snapshot.
     # (or load pretrained generator weights)
-    gen.load_weights( Args.genw )
-    disc.load_weights( Args.discw )
+    try:
+        gen.load_weights( Args.genw )
+    except:
+        print("failed to load", Args.genw)
+        raise
+    try:
+        disc.load_weights( Args.discw, by_name=True )
+    except:
+        print("failed to load", Args.discw)
+        raise
 
     logger = CSVLogger('loss.csv') # yeah, you can use callbacks independently
     logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
         faces = f.get( 'faces' ) # 
-        run_batches(gen, disc, gan, faces, logger, range(340000, 500000))
+        run_batches(gen, disc, gan, faces, logger, range(50000))
     logger.on_train_end()
 
 
@@ -206,7 +218,22 @@ def train_gan( dataf ) :
 def run_batches(gen, disc, gan, faces, logger, itr_generator):
     history = [] # need this to prevent G from shifting from mode to mode to trick D.
     train_disc = True
+    #lr_d = 0.00002
+    #lr_g = 0.00001
     for batch in itr_generator:
+        ## decay learning rate.
+        ## https://github.com/fchollet/keras/issues/898
+        ## As expected, adjusting LR didn't work very well.
+        ## Adjusting LR makes optimization slow,
+        ## but can't prevent things from happening.
+        ## It only has to be smaller than some value that prevents the
+        ## optimization from failing.
+        #if batch % 1000 == 0 and batch > 0:
+        #    lr_d /= 2.0
+        #    lr_g /= 2.0
+        #    disc.optimizer.lr.assign(lr_d)
+        #    gen.optimizer.lr.assign(lr_g)
+
         # Using soft labels here.
         lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
         lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
