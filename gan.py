@@ -93,7 +93,7 @@ def build_networks():
 
     # Unlike gan hacks, sgd doesn't seem to work well.
     # DCGAN paper states that they used Adam for both G and D.
-    #opt  = optimizers.SGD(lr=0.0010, decay=0.0, momentum=0.9, nesterov=True)
+    #opt  = optimizers.SGD(lr=0.0001, decay=0.0, momentum=0.9, nesterov=True)
     #dopt = optimizers.SGD(lr=0.0001, decay=0.0, momentum=0.9, nesterov=True)
 
     # lr=0.010. Looks good, statistically (low d loss, higher g loss)
@@ -115,10 +115,14 @@ def build_networks():
     # now same lr, as we are using history to train D multiple times.
     # I don't exactly understand how decay parameter in Adam works. Certainly not exponential.
     # Actually faster than exponential, when I look at the code and plot it in Excel.
-    dopt = Adam(lr=0.00002, beta_1=0.5)
-    opt  = Adam(lr=0.00001, beta_1=0.5)
+    dopt = Adam(lr=0.0001, beta_1=0.1)
+    opt  = Adam(lr=0.0001, beta_1=0.1)
 
     # too slow
+    # Another thing about LR.
+    # If you make it small, it will only optimize slowly.
+    # LR only has to be smaller than certain threshold that is data dependent.
+    # (related to the largest gradient that prevents optimization)
     #dopt = Adam(lr=0.000010, beta_1=0.5)
     #opt  = Adam(lr=0.000001, beta_1=0.5)
 
@@ -190,26 +194,35 @@ def train_autoenc( dataf ):
 
 
 
+def load_weights(model, wf):
+    '''
+    I find error message in load_weights hard to understand sometimes.
+    '''
+    try:
+        model.load_weights(wf)
+    except:
+        print("failed to load weight", wf)
+        raise
+
+
+
 def train_gan( dataf ) :
     gen, disc, gan = build_networks()
 
     # Uncomment these, if you want to continue training from some snapshot.
     # (or load pretrained generator weights)
-    try:
-        gen.load_weights( Args.genw )
-    except:
-        print("failed to load", Args.genw)
-        raise
-    try:
-        disc.load_weights( Args.discw, by_name=True )
-    except:
-        print("failed to load", Args.discw)
-        raise
+    load_weights(gen, Args.genw)
+    load_weights(disc, Args.discw)
 
     logger = CSVLogger('loss.csv') # yeah, you can use callbacks independently
     logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
-        faces = f.get( 'faces' ) # 
+    #with h5py.File( 'v.hdf5', 'r' ) as f :
+        faces = f.get( 'faces' )
+        #faces = f.get( 'xxx' )
+        #faces = np.array(faces) # [0, 1]
+        #faces -= 0.5
+        #faces *= 2 # [-1, 1]
         run_batches(gen, disc, gan, faces, logger, range(50000))
     logger.on_train_end()
 
@@ -218,22 +231,7 @@ def train_gan( dataf ) :
 def run_batches(gen, disc, gan, faces, logger, itr_generator):
     history = [] # need this to prevent G from shifting from mode to mode to trick D.
     train_disc = True
-    #lr_d = 0.00002
-    #lr_g = 0.00001
     for batch in itr_generator:
-        ## decay learning rate.
-        ## https://github.com/fchollet/keras/issues/898
-        ## As expected, adjusting LR didn't work very well.
-        ## Adjusting LR makes optimization slow,
-        ## but can't prevent things from happening.
-        ## It only has to be smaller than some value that prevents the
-        ## optimization from failing.
-        #if batch % 1000 == 0 and batch > 0:
-        #    lr_d /= 2.0
-        #    lr_g /= 2.0
-        #    disc.optimizer.lr.assign(lr_d)
-        #    gen.optimizer.lr.assign(lr_g)
-
         # Using soft labels here.
         lbl_fake = Args.label_noise * np.random.ranf(Args.batch_sz)
         lbl_real = 1 - Args.label_noise * np.random.ranf(Args.batch_sz)
@@ -249,17 +247,19 @@ def run_batches(gen, disc, gan, faces, logger, itr_generator):
                 history.pop(0) # evict oldest
             history.append( (reals, fakes) )
 
-        if train_disc :
-            gen.trainable = False
-            #for reals, fakes in history:
-            d_loss1 = disc.train_on_batch( reals, lbl_real )
-            d_loss0 = disc.train_on_batch( fakes, lbl_fake )
-            gen.trainable = True
+        gen.trainable = False
+        #for reals, fakes in history:
+        d_loss1 = disc.train_on_batch( reals, lbl_real )
+        d_loss0 = disc.train_on_batch( fakes, lbl_fake )
+        gen.trainable = True
        
-        # pretrain train discriminator only (or, make D catch up if it is behind)
-        if batch < 20 or d_loss1 > 15.0 or d_loss0 > 15.0 :
+        #if d_loss1 > 15.0 or d_loss0 > 15.0 :
+        # artificial training of one of G or D based on
+        # statistics is not good at all.
+
+        # pretrain train discriminator only
+        if batch < 20 :
             print( batch, "d0:{} d1:{}".format( d_loss0, d_loss1 ) )
-            train_disc = True
             continue
 
         disc.trainable = False
@@ -311,7 +311,7 @@ def generate( genw, cnt ):
     shape = (Args.sz, Args.sz, 3)
     gen = build_gen( shape )
     gen.compile(optimizer='sgd', loss='mse')
-    gen.load_weights(genw)
+    load_weights(gen, Args.genw)
 
     generated = gen.predict(binary_noise(Args.batch_sz))
     # Unoffset, in batch.
