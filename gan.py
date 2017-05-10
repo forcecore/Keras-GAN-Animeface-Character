@@ -85,7 +85,7 @@ def dump_batch(imgs, cnt, ofname):
 
 
 def build_networks():
-    shape = (Args.sz, Args.sz, 3)
+    shape = (Args.sz, Args.sz, Args.ch)
 
     # Learning rate is important.
     # Optimizers are important too, try experimenting them yourself to fit your dataset.
@@ -115,8 +115,8 @@ def build_networks():
     # now same lr, as we are using history to train D multiple times.
     # I don't exactly understand how decay parameter in Adam works. Certainly not exponential.
     # Actually faster than exponential, when I look at the code and plot it in Excel.
-    dopt = Adam(lr=0.0001, beta_1=0.5)
-    opt  = Adam(lr=0.0001, beta_1=0.5)
+    dopt = Adam(lr=0.00005, beta_1=0.5)
+    opt  = Adam(lr=0.00005, beta_1=0.5)
 
     # too slow
     # Another thing about LR.
@@ -160,7 +160,7 @@ def train_autoenc( dataf ):
 
     opt = Adam(lr=0.001)
 
-    shape = (Args.sz, Args.sz, 3)
+    shape = (Args.sz, Args.sz, Args.ch)
     enc = build_enc( shape )
     enc.compile(optimizer=opt, loss='mse')
     enc.summary()
@@ -211,18 +211,19 @@ def train_gan( dataf ) :
 
     # Uncomment these, if you want to continue training from some snapshot.
     # (or load pretrained generator weights)
-    load_weights(gen, Args.genw)
-    load_weights(disc, Args.discw)
+    #load_weights(gen, Args.genw)
+    #load_weights(disc, Args.discw)
 
     logger = CSVLogger('loss.csv') # yeah, you can use callbacks independently
     logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
-    #with h5py.File( 'v.hdf5', 'r' ) as f :
         faces = f.get( 'faces' )
-        #faces = f.get( 'xxx' )
-        #faces = np.array(faces) # [0, 1]
-        #faces -= 0.5
-        #faces *= 2 # [-1, 1]
+
+        if Args.ch == 1:
+            faces = np.array(faces[:,:,:,0])
+            faces = np.expand_dims(faces, 3)
+            print("xxxxxxxxxxxxxx", faces.shape)
+
         run_batches(gen, disc, gan, faces, logger, range(50000))
     logger.on_train_end()
 
@@ -308,7 +309,7 @@ def end_of_batch_task(batch, gen, disc, reals, fakes):
 
 
 def generate( genw, cnt ):
-    shape = (Args.sz, Args.sz, 3)
+    shape = (Args.sz, Args.sz, Args.ch)
     gen = build_gen( shape )
     gen.compile(optimizer='sgd', loss='mse')
     load_weights(gen, Args.genw)

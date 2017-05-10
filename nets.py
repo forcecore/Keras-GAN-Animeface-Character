@@ -144,7 +144,7 @@ def build_gen( shape ) :
     x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 32x32
 
-    x= Conv2DTranspose( 3, (4, 4), padding='same', activation='tanh',
+    x= Conv2DTranspose( Args.ch, (4, 4), padding='same', activation='tanh',
         strides=(2, 2), kernel_initializer=Args.kernel_initializer )(x)
     # 64x64
 

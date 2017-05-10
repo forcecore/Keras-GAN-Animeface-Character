@@ -9,6 +9,7 @@ class Args :
 
     # images size we will work on. (sz, sz, 3)
     sz = 64
+    ch = 1
     
     # alpha, used by leaky relu of D and G networks.
     alpha_D = 0.2
