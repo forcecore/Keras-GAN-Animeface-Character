@@ -4,17 +4,20 @@ import h5py
 import numpy as np
 import scipy.misc
 import random
+import cv2
 
 from args import Args
 
 
+
 def normalize4gan(im):
     '''
-    Scale the input in [-1, 1] range, as described in ganhacks
-    Warning: input im is modified in-place!
+    Convert colorspace and
+    cale the input in [-1, 1] range, as described in ganhacks
     '''
-    im /= 128 # in [0, 2]
-    im -= 1 # in [-1, 1]
+    im = cv2.cvtColor(im, cv2.COLOR_RGB2HSV).astype(np.float32)
+    im /= 128.0
+    im -= 1 # now in [-1, 1]
     return im
 
 
@@ -25,9 +28,10 @@ def denormalize4gan(im):
     [-1, 1] to [0, 255].
     Warning: input im is modified in-place!
     '''
-    im += 1 # in [0, 2]
-    im *= 127 # in [0, 254]
-    return im.astype(np.uint8)
+    im += 1.0 # in [0, 2]
+    im *= 127.0 # in [0, 255]
+    im = cv2.cvtColor(im.astype(np.uint8), cv2.COLOR_HSV2RGB)
+    return im
 
 
 
@@ -51,9 +55,6 @@ def make_hdf5(ofname, wildcard):
             print(fname)
             im = scipy.misc.imread(fname, mode='RGB') # some have alpha channel
             im = scipy.misc.imresize(im, (Args.sz, Args.sz))
-            im = im.astype(np.float32)
-
-            # scale the input in [-1, 1] range, as described in ganhacks
             faces[i] = normalize4gan(im)
 
 
@@ -63,15 +64,16 @@ def test(hdff):
     Reads in hdf file and check if pixels are scaled in [-1, 1] range.
     '''
     with h5py.File(hdff, "r") as f:
-        Xs = f.get("faces")
-        for i in range(len(Xs)):
-            X = Xs[i]
-            print(X.shape)
-            print(np.max(X))
-            print(np.min(X))
-            assert np.max(X) <= 1.0
-            assert np.min(X) >= -1.0
-        print("Dataset size:", len(Xs))
+        X = f.get("faces")
+        print(np.min(X[:,:,:,0]))
+        print(np.max(X[:,:,:,0]))
+        print(np.min(X[:,:,:,1]))
+        print(np.max(X[:,:,:,1]))
+        print(np.min(X[:,:,:,2]))
+        print(np.max(X[:,:,:,2]))
+        print("Dataset size:", len(X))
+        assert np.max(X) <= 1.0
+        assert np.min(X) >= -1.0
 
 
 
@@ -82,4 +84,4 @@ if __name__ == "__main__" :
     #make_hdf5("data.hdf5", "animeface-character-dataset/thumb/025*/*.png")
 
     # Uncomment and run test, if you want.
-    #test("data.hdf5")
+    test("data.hdf5")

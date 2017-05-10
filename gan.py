@@ -115,8 +115,8 @@ def build_networks():
     # now same lr, as we are using history to train D multiple times.
     # I don't exactly understand how decay parameter in Adam works. Certainly not exponential.
     # Actually faster than exponential, when I look at the code and plot it in Excel.
-    dopt = Adam(lr=0.0001, beta_1=0.5, beta_2=0.5)
-    opt  = Adam(lr=0.0001, beta_1=0.5, beta_2=0.5)
+    dopt = Adam(lr=0.0001, beta_1=0.5)
+    opt  = Adam(lr=0.0001, beta_1=0.5)
 
     # too slow
     # Another thing about LR.
