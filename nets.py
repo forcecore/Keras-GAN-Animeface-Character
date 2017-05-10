@@ -53,6 +53,7 @@ def build_discriminator( shape, build_disc=True ) :
 
     # https://github.com/tdrussell/IllustrationGAN
     # As proposed by them, unlike GAN hacks, MaxPooling works better for anime dataset it seems.
+    # However, animeGAN doesn't use it so I'll keep it more similar to DCGAN.
 
     face = Input( shape=shape )
     x = face
