@@ -15,11 +15,11 @@ class Args :
     alpha_G = 0.2
 
     # batch size, during training.
-    batch_sz = 32
+    batch_sz = 128
 
     # Length of the noise vector to generate the faces from.
     # Latent space z
-    noise_shape = (1, 1, 128)
+    noise_shape = (1, 1, 100)
 
     # GAN training can be ruined any moment if not careful.
     # Archive some snapshots in this directory.
