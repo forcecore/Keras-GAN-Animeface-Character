@@ -9,7 +9,6 @@ class Args :
 
     # images size we will work on. (sz, sz, 3)
     sz = 64
-    ch = 1
     
     # alpha, used by leaky relu of D and G networks.
     alpha_D = 0.2
@@ -44,3 +43,10 @@ class Args :
     # Same as default in Keras, but good for GAN, says
     # https://github.com/gheinrich/DIGITS-GAN/blob/master/examples/weight-init/README.md#experiments-with-lenet-on-mnist
     kernel_initializer = 'glorot_uniform'
+
+    # Since DCGAN paper, everybody uses 0.5 and for me, it works the best too.
+    # I tried 0.9, 0.1.
+    adam_beta = 0.5
+
+    # BatchNormalization matters too.
+    bn_momentum = 0.3

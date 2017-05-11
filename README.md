@@ -1,8 +1,5 @@
 # Keras-GAN-Animeface-Character
 
-WORK IN PROGRESS.
-DOESN'T WORK YET!!
-
 GAN example for Keras. Cuz MNIST is too small and there
 should an example on something more realistic.
 
@@ -21,6 +18,7 @@ should an example on something more realistic.
     * https://github.com/tdrussell/IllustrationGAN
 * I used slow implementation for the sake of simplicity. However, the correct way is:
     * https://ctmakro.github.io/site/on_learning/fast_gan_in_keras.html
+* https://github.com/shekkizh/neuralnetworks.thought-experiments/blob/master/Generative%20Models/GAN/Readme.md
 
 
 ## How to run this example
@@ -101,3 +99,6 @@ What I experienced during my training of GAN.
   If it stays there for too long, it isn't good, I think.
 * In case you're seeing high G loss, it could mean it can't keep up with discriminator.
   You might need to increase LR. (Must be slower than discriminator though)
+* One final piece of the training I was missing was the parameter in BatchNormalization.
+  I found about it in this link:
+  https://github.com/shekkizh/neuralnetworks.thought-experiments/blob/master/Generative%20Models/GAN/Readme.md

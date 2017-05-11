@@ -47,7 +47,7 @@ def build_discriminator( shape, build_disc=True ) :
             kernel_initializer=Args.kernel_initializer,
             **kwargs )( x )
         #x = MaxPooling2D()( x )
-        x = BatchNormalization()( x )
+        x = BatchNormalization(momentum=Args.bn_momentum)( x )
         x = LeakyReLU(alpha=Args.alpha_D)( x )
         return x
 
@@ -113,7 +113,7 @@ def build_gen( shape ) :
         #x = bilinear2x( x, filters )
         #x = Conv2D( filters, shape, padding='same' )( x )
 
-        x = BatchNormalization()( x )
+        x = BatchNormalization(momentum=Args.bn_momentum)( x )
         x = LeakyReLU(alpha=Args.alpha_G)( x )
         return x
 
@@ -127,7 +127,7 @@ def build_gen( shape ) :
 
     x= Conv2DTranspose( 512, (4, 4),
         kernel_initializer=Args.kernel_initializer )(x)
-    x = BatchNormalization()( x )
+    x = BatchNormalization(momentum=Args.bn_momentum)( x )
     x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 4x4
     x = deconv2d( x, 256 )
@@ -140,11 +140,11 @@ def build_gen( shape ) :
     # Extra layer
     x = Conv2D( 64, (3, 3), padding='same',
         kernel_initializer=Args.kernel_initializer )( x )
-    x = BatchNormalization()( x )
+    x = BatchNormalization(momentum=Args.bn_momentum)( x )
     x = LeakyReLU(alpha=Args.alpha_G)( x )
     # 32x32
 
-    x= Conv2DTranspose( Args.ch, (4, 4), padding='same', activation='tanh',
+    x= Conv2DTranspose( 3, (4, 4), padding='same', activation='tanh',
         strides=(2, 2), kernel_initializer=Args.kernel_initializer )(x)
     # 64x64
 

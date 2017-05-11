@@ -15,9 +15,11 @@ def normalize4gan(im):
     Convert colorspace and
     cale the input in [-1, 1] range, as described in ganhacks
     '''
-    im = cv2.cvtColor(im, cv2.COLOR_RGB2YCR_CB).astype(np.float32)
+    #im = cv2.cvtColor(im, cv2.COLOR_RGB2YCR_CB).astype(np.float32)
+    # HSV... not helpful.
+    im = im.astype(np.float32)
     im /= 128.0
-    im -= 1 # now in [-1, 1]
+    im -= 1.0 # now in [-1, 1]
     return im
 
 
@@ -30,8 +32,7 @@ def denormalize4gan(im):
     '''
     im += 1.0 # in [0, 2]
     im *= 127.0 # in [0, 255]
-    #im = cv2.cvtColor(im.astype(np.uint8), cv2.COLOR_YCR_CB2RGB)
-    return im[:,:,0]
+    return im.astype(np.uint8)
 
 
 

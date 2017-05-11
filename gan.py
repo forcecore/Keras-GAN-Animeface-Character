@@ -85,7 +85,7 @@ def dump_batch(imgs, cnt, ofname):
 
 
 def build_networks():
-    shape = (Args.sz, Args.sz, Args.ch)
+    shape = (Args.sz, Args.sz, 3)
 
     # Learning rate is important.
     # Optimizers are important too, try experimenting them yourself to fit your dataset.
@@ -115,8 +115,8 @@ def build_networks():
     # now same lr, as we are using history to train D multiple times.
     # I don't exactly understand how decay parameter in Adam works. Certainly not exponential.
     # Actually faster than exponential, when I look at the code and plot it in Excel.
-    dopt = Adam(lr=0.00005, beta_1=0.5)
-    opt  = Adam(lr=0.00005, beta_1=0.5)
+    dopt = Adam(lr=0.0002, beta_1=Args.adam_beta)
+    opt  = Adam(lr=0.0001, beta_1=Args.adam_beta)
 
     # too slow
     # Another thing about LR.
@@ -160,7 +160,7 @@ def train_autoenc( dataf ):
 
     opt = Adam(lr=0.001)
 
-    shape = (Args.sz, Args.sz, Args.ch)
+    shape = (Args.sz, Args.sz, 3)
     enc = build_enc( shape )
     enc.compile(optimizer=opt, loss='mse')
     enc.summary()
@@ -201,8 +201,8 @@ def load_weights(model, wf):
     try:
         model.load_weights(wf)
     except:
-        print("failed to load weight", wf)
-        raise
+        print("failed to load weight, network changed or corrupt hdf5", wf)
+        sys.exit(1)
 
 
 
@@ -218,12 +218,6 @@ def train_gan( dataf ) :
     logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
         faces = f.get( 'faces' )
-
-        if Args.ch == 1:
-            faces = np.array(faces[:,:,:,0])
-            faces = np.expand_dims(faces, 3)
-            print("xxxxxxxxxxxxxx", faces.shape)
-
         run_batches(gen, disc, gan, faces, logger, range(50000))
     logger.on_train_end()
 
@@ -290,7 +284,7 @@ def end_of_batch_task(batch, gen, disc, reals, fakes):
         dump_batch(reals, 4, "reals.png")
         dump_batch(fakes, 4, "fakes.png") # to check how noisy the image is
         frame = gen.predict(_bits)
-        animf = os.path.join(Args.anim_dir, "frame_{:08d}.png".format(batch))
+        animf = os.path.join(Args.anim_dir, "frame_{:08d}.png".format(int(batch/10)))
         dump_batch(frame, 4, animf)
         dump_batch(frame, 4, "frame.png")
 
@@ -309,7 +303,7 @@ def end_of_batch_task(batch, gen, disc, reals, fakes):
 
 
 def generate( genw, cnt ):
-    shape = (Args.sz, Args.sz, Args.ch)
+    shape = (Args.sz, Args.sz, 3)
     gen = build_gen( shape )
     gen.compile(optimizer='sgd', loss='mse')
     load_weights(gen, Args.genw)
