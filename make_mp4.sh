@@ -9,7 +9,7 @@
 
 ffmpeg \
     -f image2 \
-    -i anim/frame_%d.png \
+    -i anim/frame_%08d.png \
     -r 30 \
     -crf 5 -pix_fmt yuv420p \
     -vcodec libx264 \
