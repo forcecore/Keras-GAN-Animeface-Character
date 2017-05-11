@@ -201,7 +201,7 @@ def load_weights(model, wf):
     try:
         model.load_weights(wf)
     except:
-        print("failed to load weight, network changed or corrupt hdf5", wf)
+        print("failed to load weight, network changed or corrupt hdf5", wf, file=sys.stderr)
         sys.exit(1)
 
 
@@ -218,7 +218,7 @@ def train_gan( dataf ) :
     logger.on_train_begin() # initialize csv file
     with h5py.File( dataf, 'r' ) as f :
         faces = f.get( 'faces' )
-        run_batches(gen, disc, gan, faces, logger, range(50000))
+        run_batches(gen, disc, gan, faces, logger, range(5000))
     logger.on_train_end()
 
 
