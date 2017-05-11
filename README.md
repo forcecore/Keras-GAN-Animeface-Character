@@ -82,16 +82,13 @@ Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
     * This is useful for seeing the generator network's capability to reproduce the input.
     * The auto-encoder will be trained on input images.
     * The output will be blurry, as the auto-encoder having mean-squared-error loss.
-      (This is why GAN is invented in the first place!)
-* The script is tuned to train well. (At least, on my machine)
-  If you need to train on your dataset, read the tips section.
+      (This is why GAN got invented in the first place!)
 * To run training, modify main() so that train\_gan() is uncommented.
 * The script will dump reals.png and fakes.png every 10 epoch so that you can see
   how the training is going.
-* The training takes a while. For this example on Anime Face dataset, it took about 10000 batches
+* The training takes a while. For this example on Anime Face dataset, it took about 10000 mini-batches
   to get good results.
-    * Until batch 1000, I saw just some color changes with noise.
-    * If you see only uniform color until 2000 then the training is not working!
+    * If you see only uniform color or "modern art" until 2000 then the training is not working!
 * The script also dumps weights every 10 batches. Utilize them to save training time.
   Weights before diverging is preferred :)
   Uncomment load\_weights() in train\_gan().
@@ -99,24 +96,24 @@ Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
 ### Training tips
 What I experienced during my training of GAN.
 * As described in GAN Hacks, discriminator should be ahead of the generator so that
-  the generator can be "guided" by the discriminator. You may need pre-training.
-  To do that, copy-paste training code for discriminator and run it for about 100 batches.
+  the generator can be "guided" by the discriminator.
 * If you look at loss graph at https://github.com/osh/KerasGAN,
   they had gen loss in range of 2 to 4. Their training worked well.
   The discriminator loss is low, arond 0.1.
 * You'll need trial and error to get the hyper-pameters right
-  so that the training continues in the stable, balanced zone.
-  That includes learning rate of D and G, and their layers.
+  so that the training stays in the stable, balanced zone.
+  That includes learning rate of D and G, momentums, etc.
 * The convergence is quite sensitive with LR, beware!
 * If things go well, the discriminator loss for detecting real/fake = dloss0/dloss1 should
   be less than or around 0.1, which means it is good at telling whether the input is real or fake.
 * If learning rate is too high, the discriminator will diverge and
   one of the loss will get high and will not fall. Training fails in this case.
+* If you make LR too small, it will only slow the learning and will not prevent other issues
+  such as oscillation. It only needs to be lower than certain threshold that is data dependent.
 * If adjusting LR doesn't work, it could be lack of complexity in the discriminator layer.
-  Add more layers.
+  Add more layers, or some other parameters. It could be anything :( Good luck!
 * On the other hand, generator loss will be relatively higher than discriminator loss.
   In this script, it oscillates in range 0.1 to 4.
-  It sometimes stays around 0.1 for quite a while until D gets much better than G.
 * If you see any of the D loss staying > 15 (when batch size is 32) the training is screwed.
 * In case of G loss > 15, see if it escapes within 30 batches.
   If it stays there for too long, it isn't good, I think.
