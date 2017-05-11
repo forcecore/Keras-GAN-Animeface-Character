@@ -4,6 +4,7 @@ from keras import initializers, regularizers, constraints
 
 # From a PR that is not pulled into Keras
 # https://github.com/fchollet/keras/pull/3677
+# I updated the code to work on Keras 2.x
 
 class MinibatchDiscrimination(Layer):
     """Concatenates to each sample information about how different the input
