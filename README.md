@@ -3,6 +3,20 @@
 GAN example for Keras. Cuz MNIST is too small and there
 should an example on something more realistic.
 
+## Some results
+
+* https://www.youtube.com/watch?v=YuGFmgCQV8I : Training for 22 epochs
+
+![Loss graph](html_data/loss.png)
+Loss graph for 5000 mini-batches. 1 mini-batch = 64 images.
+Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
+
+![Some ouptputs of 5000th mini-batch](html_data/frame_00000499.png)
+Some outputs of 5000th min-batch
+
+![Some inputs](html_data/reals.png)
+Some training images
+
 
 ## Useful resources, before you go on
 
