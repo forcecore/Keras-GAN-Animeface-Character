@@ -29,14 +29,14 @@ Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
 
 ## Useful resources, before you go on
 
-* There are great examples using MNIST already. Be sure to check them out.
+* There are great examples on MNIST already. Be sure to check them out.
     * https://oshearesearch.com/index.php/2016/07/01/mnist-generative-adversarial-model-in-keras/
     * https://github.com/osh/KerasGAN
     * https://medium.com/towards-data-science/gan-by-example-using-keras-on-tensorflow-backend-1a6d515a60d0
 * "How to Train a GAN? Tips and tricks to make GANs work" is a must read! (GAN Hacks)
     * The advice was very helpful in making this example.
     * https://github.com/soumith/ganhacks
-* A PyTorch for the same purpose:
+* Projects doing the same thing:
     * https://github.com/jayleicn/animeGAN
     * https://github.com/tdrussell/IllustrationGAN
 * I used slow implementation for the sake of simplicity. However, the correct way is:
