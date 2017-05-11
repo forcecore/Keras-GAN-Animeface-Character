@@ -34,7 +34,7 @@ Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
     * https://github.com/osh/KerasGAN
     * https://medium.com/towards-data-science/gan-by-example-using-keras-on-tensorflow-backend-1a6d515a60d0
 * "How to Train a GAN? Tips and tricks to make GANs work" is a must read! (GAN Hacks)
-    * The advice was very helpful in making this example.
+    * The advices was very helpful in making this example.
     * https://github.com/soumith/ganhacks
 * Projects doing the same thing:
     * https://github.com/jayleicn/animeGAN
