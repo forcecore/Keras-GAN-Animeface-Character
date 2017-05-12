@@ -122,3 +122,4 @@ What I experienced during my training of GAN.
 * One final piece of the training I was missing was the parameter in BatchNormalization.
   I found about it in this link:
   https://github.com/shekkizh/neuralnetworks.thought-experiments/blob/master/Generative%20Models/GAN/Readme.md
+    * Sort of interesting, in PyTorch, momentum parameter for BatchNorm is 0.1, according to the API documents, while in Keras it is 0.99. I'm not sure if 0.1 in PyTorch actually means 1 - 0.1. I didn't look into PyTorch backend implementation.
