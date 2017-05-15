@@ -68,9 +68,10 @@ Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
 * Run the preprocessing script. It saves training time to resize/scale the input than
   doing those tasks on the fly in the training loop.
     * ./data.py
-    * Data.py will only sample a subset of the dataset. The size of the subset is determined
+    * The image, when loaded from PNG files, the RGB values have [0, 255]. (uint8 type). data.py will collect the images, resize the images to 64x64 and scale the RGB values so that they will be in [-1.0, 1.0] range.
+    * Data.py will only sample a subset of the dataset if configured to do so. The size of the subset is determined
       by dataset_sz defined in args.py
-    * data.py will resize the input to 32x32 (=sz defined in args.py) and dump them in data.hdf5.
+    * The images will be written to data.hdf5.
         * Made it small to verify the training is working.
         * You can increase it but you need to adjust the network sizes accordingly.
     * Again, which files to read is defined in the script at the bottom, not by sys.argv.
