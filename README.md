@@ -47,10 +47,21 @@ Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
 ## How to run this example
 
 ### Setup
+
 * My environment: Python 3.6 + Keras 2.0.4 + Tensorflow 1.x
     * If you are on Keras 2.0.0, you need to update it otherwise BatchNormalization() will
       cause bug, saying "you need to pass float to input" or something
       like that from Tensorflow back end.
+* Use [virtualenv](https://docs.python.org/3/tutorial/venv.html) to initialize a similar environment (python and dependencies):
+
+```bash
+pip install virtualenv
+virtualenv venv
+virtualenv -p <PATH_TO_BIN_DIR>/python3.6 venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
 * I HATE making a program that has so many command line parameters to pass.
   Many of the parameters are there in the scripts. Adjust the script as you need.
   The "main()" function is at the bottom of the script as people do in C/C++
