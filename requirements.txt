@@ -17,3 +17,4 @@ tensorflow==1.9.0
 termcolor==1.1.0
 Theano==1.0.2
 Werkzeug==0.14.1
+setuptools==39.1.0
