@@ -1,8 +1,12 @@
 absl-py==0.3.0
 astor==0.7.1
+backports.weakref==1.0rc1
+bleach==1.5.0
+enum34==1.1.6
 gast==0.2.0
 grpcio==1.13.0
 h5py==2.8.0
+html5lib==0.9999999
 Keras==2.0.4
 Markdown==2.6.11
 numpy==1.15.0
@@ -14,6 +18,7 @@ scipy==1.1.0
 six==1.11.0
 tensorboard==1.9.0
 tensorflow==1.9.0
+tensorflow-tensorboard==1.5.1
 termcolor==1.1.0
 Theano==1.0.2
 Werkzeug==0.14.1
