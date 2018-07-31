@@ -56,7 +56,6 @@ Dataset = 14490, hence 5000 mini-batches is approximately 22 epochs.
 
 ```bash
 pip install virtualenv
-virtualenv venv
 virtualenv -p <PATH_TO_BIN_DIR>/python3.6 venv
 source venv/bin/activate
 pip install -r requirements.txt
